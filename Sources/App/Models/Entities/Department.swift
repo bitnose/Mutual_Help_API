@@ -25,6 +25,7 @@ final class Department : Codable {
     var countryID : Country.ID
     
     
+    
     init(departmentNumber : Int, departmentName : String, countryID : Country.ID) {
         self.departmentNumber = departmentNumber
         self.departmentName = departmentName

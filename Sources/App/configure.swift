@@ -12,6 +12,8 @@ public func configure(_ config: inout Config, _ env: inout Environment, _ servic
      2. Registers the necessary services with your application to ensure authentication works
      */
     
+    
+    
     try services.register(FluentPostgreSQLProvider()) // 1
     try services.register(AuthenticationProvider()) // 2
 
@@ -88,8 +90,10 @@ public func configure(_ config: inout Config, _ env: inout Environment, _ servic
     var commandConfig = CommandConfig.default()
     commandConfig.useFluentCommands()
     services.register(commandConfig)
-    
-    
+   
+    // Set up the hostname and port number and register this service
+    let serverConfiure = NIOServerConfig.default(hostname: "localhost", port: 9090)
+    services.register(serverConfiure)
     // Tells your application to use MemoryKeyedCache when asked for the KeyedCache service. The KeyedCache service is a key-value cache that backs sessions.
     config.prefer(MemoryKeyedCache.self, for: KeyedCache.self) 
 }

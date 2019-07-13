@@ -50,6 +50,15 @@ final class Ad : Codable {
     // Fluent will automatically manage these records
     static var createdAtKey: TimestampKey? = \.adCreatedAt
     static var updatedAtKey : TimestampKey? = \.updatedAt
+    
+    
+
+
+    
+   
+    
+    
+    
 }
 
 /// MARK: - Extensions
@@ -139,3 +148,5 @@ extension Ad : Migration { // 1
         }
     }
 }
+
+
