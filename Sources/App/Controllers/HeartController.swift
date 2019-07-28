@@ -25,7 +25,7 @@ struct HeartController : RouteCollection {
          */
         
         let heartRoutes = router.grouped("api/hearts")
-        heartRoutes.post(use: createHandler) // 1
+        heartRoutes.post(use: createUncreateHandler) // 1
         heartRoutes.delete(Heart.parameter, use: deleteHandler) //
         
     }
@@ -47,6 +47,40 @@ struct HeartController : RouteCollection {
         
     }
     
+/// Create Heart / Delete Heart
+/// 1. Function which returns Future<HTTPStatus>
+/// 2. Decode the content of the request to Heart object and map it to Future<HTTPStatus>.
+/// 3. Token of the heart.
+/// 4. Id of the Ad(parent) of the heart.
+/// 5. Query all the hearts and get the first (and only one) which has the same values (token and adID) as the decoded heart has. Map it to Future<HTTPStatus>.
+/// 6. If the query finds the heart ie it exists already in the database.
+/// 7. Delete the found heart and map it to Future<HTTPStatus>.
+/// 8. Return .noContent.
+/// 9. If the heart wasn't found.
+/// 10. Save the heart to database and map it to Future<HTTPStatus>.
+/// 11. Return .created.
+    
+    func createUncreateHandler(_ req: Request) throws -> Future<HTTPStatus> { // 1
+        
+        return try req.content.decode(Heart.self).flatMap(to: HTTPStatus.self) { heart in // 2
+            let token = heart.token // 3
+            let adID = heart.adID // 4
+            
+            return Heart.query(on: req).filter(\Heart.token == token).filter(\Heart.adID == adID).first().flatMap(to: HTTPStatus.self) { existingHeart in // 5
+               
+                if let foundHeart = existingHeart { // 6
+                    return foundHeart.delete(on: req).map(to: HTTPStatus.self) { heart in // 7
+                        return .noContent // 8
+                    }
+                } else { // 9
+                    return heart.save(on: req).map(to: HTTPStatus.self) { heart in // 10
+                        return .created
+                    }
+                }
+            }
+        }
+    }
+    
     /*
      Delete by ID
      1. Method to DELETE to /api/hearts/<ID> that returns Future<HTTPStatus>
@@ -60,6 +94,9 @@ struct HeartController : RouteCollection {
             .delete(on: req) // 3
             .transform(to: .noContent) // 4
     }
+    
+    
+
     
     
 }

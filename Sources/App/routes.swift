@@ -36,4 +36,7 @@ public func routes(_ router: Router) throws {
     let offerController = OfferController() // 1
     try router.register(collection: offerController) // 2
     
+    let userController = UserController() // 1
+    try router.register(collection: userController) // 2
+    
 }

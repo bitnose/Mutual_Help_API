@@ -13,6 +13,10 @@ struct ContactController : RouteCollection {
     
     // MARK: - Register Routes
     func boot(router: Router) throws {
+        let contactRoutes = router.grouped("api/contacts")
+        let tokenAuthMiddleware = User.tokenAuthMiddleware()
+        let guardAuthMiddleware = User.guardAuthMiddleware()
+        let tokenAuthGroup = contactRoutes.grouped(tokenAuthMiddleware, guardAuthMiddleware)
         
         /*
          Create a new route path for the api/ads
@@ -24,8 +28,8 @@ struct ContactController : RouteCollection {
          3. Delete Request - Delete Contact by ID
          */
         
-        let contactRoutes = router.grouped("api/contacts")
-        contactRoutes.post( use: createHandler) // 1
+        
+        tokenAuthGroup.post( use: createHandler) // 1
         contactRoutes.get(use: getAllHandler) // 2
         contactRoutes.delete(Contact.parameter, use: deleteHandler) // 3
         

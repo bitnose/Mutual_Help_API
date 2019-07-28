@@ -32,14 +32,18 @@ struct DepartmentController : RouteCollection {
          */
         
         let departmentRoutes = router.grouped("api/departments")
+        let tokenAuthMiddleware = User.tokenAuthMiddleware() // 1
+        let guardAuthMiddleware = User.guardAuthMiddleware() // 2
+        let tokenAuthGroup = departmentRoutes.grouped(tokenAuthMiddleware, guardAuthMiddleware) // 3
         
-        departmentRoutes.post(use: createHandler) // 1
-                departmentRoutes.get(use: getAllHandler) // 2
-                departmentRoutes.get(Department.parameter, use: getHandler) // 3
-        departmentRoutes.get("sorted", use: sortedHandler) // 4
-                departmentRoutes.get(Department.parameter, "cities", use: getCitiesHandler) // 5
-                departmentRoutes.post(Department.parameter, "perimeter", Department.parameter, use: addDepartmentsHandler) // 6
-                departmentRoutes.get(Department.parameter, "perimeter", use: getDepartmentsOfPerimeter) // 7
+            tokenAuthGroup.post(use: createHandler) // 1
+            departmentRoutes.get(use: getAllHandler) // 2
+            departmentRoutes.get(Department.parameter, use: getHandler) // 3
+            departmentRoutes.get("sorted", use: sortedHandler) // 4
+            departmentRoutes.get(Department.parameter, "cities", use: getCitiesHandler) // 5
+            tokenAuthGroup.post(Department.parameter, "perimeter", Department.parameter, use: addDepartmentsHandler) // 6
+            departmentRoutes.get(Department.parameter, "perimeter", use: getDepartmentsOfPerimeter) // 7
+        
         /*
          1. Instance of GuardAuthenticationMiddleware which ensures that requests contain valid authorization
          */

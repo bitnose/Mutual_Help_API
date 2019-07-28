@@ -8,7 +8,8 @@
 import Vapor
 import Fluent
 import Foundation
-
+import Authentication
+import Crypto
 // Define different route handlers. To access routes you must register handlers with the router. A simple way to do this is to call the functions inside your controller froum routes.swift
 
 struct AdController : RouteCollection {
@@ -18,15 +19,22 @@ struct AdController : RouteCollection {
     func boot(router: Router) throws {
 
         // API end point which handles all ad routes
-        let adRoutes = router.grouped("api", "ads") // 2
+        let adRoutes = router.grouped("api", "ads")
         
+        // Create a TokenAuthenticationMiddleware for User. This uses BearerAuthenticationMiddleware to extract the bearer token out of the request. The middleware then converts this token into a logged in user.
+        let tokenAuthMiddleware = User.tokenAuthMiddleware()
+        let guardAuthMiddleware = User.guardAuthMiddleware()
+        let tokenAuthGroup = adRoutes.grouped(tokenAuthMiddleware, guardAuthMiddleware)
+        
+    
         /*
+         
          
          Create a new route path for the api/ads
          
          - Grouped Route (/api/ads) +  Request Type (POST, GET, PUT, DELETE) (+ Path component + Method)
          
-         1. Post Request - Post route with method which creates new ads
+         1. Post Request - Post route with method which creates new ads. This Connects the “create ad” path to createHandler() through this tokenAuthGroup middleware group.
          2. Get Request - Retrieve all Ads
          3. Get Request - Retrieve Ad by its ID (The route takes the Ad's id property as the final path segment)
          4. Delete Request - Delete item by its ID (The route takes the Ad's id property as the final path segment)
@@ -41,10 +49,11 @@ struct AdController : RouteCollection {
          13. Put Request - Update the Ad
          
          */
-        adRoutes.post(use: createHandler) // 1
-        adRoutes.get(use: getAllHandler) // 2
+        
+        tokenAuthGroup.post(use: createHandler) // 1
+        tokenAuthGroup.get(use: getAllHandler) // 2
         adRoutes.get(Ad.parameter, use: adHandler) // 3
-        adRoutes.delete(Ad.parameter, use: deleteHandler) // 4
+        tokenAuthGroup.delete(Ad.parameter, use: deleteHandler) // 4
         adRoutes.get(Ad.parameter, "city", use: getCityHandler) // 5
 //        adRoutes.post(Ad.parameter, "categories", Category.parameter, use: addCategoriesHandler) // 6
 //        adRoutes.get(Ad.parameter, "categories", use: getCategoriesHandler) // 7
@@ -56,12 +65,12 @@ struct AdController : RouteCollection {
         // We need these apis in our editAd.js
         adRoutes.get(Ad.parameter, "demands", use: getDemandsHandler) // 11
         adRoutes.get(Ad.parameter, "offers", use: getOffersHandler) // 12
-        adRoutes.put(Ad.parameter, use: updateHandler) // 13
+        tokenAuthGroup.put(Ad.parameter, use: updateHandler) // 13
  //       adRoutes.get("all", Department.parameter, use: getAdOfPerimeter)
      //   adRoutes.get("test", Department.parameter, use: test)
         adRoutes.get("all", Department.parameter, use: getAdsOfPerimeter)
+       
     }
-    
     // MARK: - HANDLERS
     
     /*
@@ -98,6 +107,10 @@ struct AdController : RouteCollection {
      */
     
     func getAllHandler(_ req: Request) throws -> Future<[Ad]> { // 1
+        
+        let user = try req.requireAuthenticated(User.self)
+        print(user)
+        
         return Ad.query(on: req).all() // 2
         
     }
@@ -415,4 +428,3 @@ struct AdData : Content {
     
     
 }
-

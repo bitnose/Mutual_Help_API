@@ -11,6 +11,7 @@ let package = Package(
         .package(url: "https://github.com/vapor/vapor.git", from: "3.0.0"),
         // Swift ORM (queries, models, relations, etc) built on PostgreSQL
         .package(url: "https://github.com/vapor/fluent-postgresql.git", from: "1.0.0-rc"),
+        // Authenticatio package
         .package(url: "https://github.com/vapor/auth.git", from: "2.0.0"),
         // VaporExt – this helps us with storing environmental variables
         .package(url: "https://github.com/vapor-community/vapor-ext.git", from: "0.1.0"),

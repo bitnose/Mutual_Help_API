@@ -13,20 +13,28 @@ struct CountryController : RouteCollection {
     
     // MARK: - Register Routes
     func boot(router: Router) throws {
-        
+    
         /*
-         Create a new route path for the api/ads
+         1. Create a TokenAuthenticationMiddleware for User. This uses BearerAuthenticationMiddleware to extract the bearer token out of the request. The middleware then converts this token into a logged in user.
+         2. Create an instance of GuardAuthenticationMiddleware which ensures that requests contain valid authorization
+         3. Create a tokentAuthGroupt for the routes that need protection.
          
+         Create a new route path for the api/ads
          - Grouped Route (/api/ads) +  Request Type (POST, GET, PUT, DELETE) (+ Path component + Method)
          
-         1. Post Request - Post route with method which creates new Countries
+         1. Post Request - Post route with method which creates new Countries. This is Protected.
          2. Get Request - Retrieve all Countries
          3. Get Request - Get the Departments of the Country
          
          */
         
+    
         let countryRoutes = router.grouped("api/countries")
-        countryRoutes.post(use: createHandler) // 1
+        let tokenAuthMiddleware = User.tokenAuthMiddleware() // 1
+        let guardAuthMiddleware = User.guardAuthMiddleware() // 2
+        let tokenAuthGroup = countryRoutes.grouped(tokenAuthMiddleware, guardAuthMiddleware) // 3
+        
+        tokenAuthGroup.post(use: createHandler) // 1
         countryRoutes.get(use: getAllHandler) // 2
         countryRoutes.get(Country.parameter, "departments",  use: getDepartmentsHandler) // 3
         

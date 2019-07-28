@@ -28,11 +28,14 @@ struct OfferController : RouteCollection {
          */
         
         let offerRoutes = router.grouped("api/offers")
-        offerRoutes.post(use: createHandler) // 1
-        offerRoutes.get(use: getAllHandler) // 2
+        let tokenAuthMiddleware = User.tokenAuthMiddleware() // 1
+        let guardAuthMiddleware = User.guardAuthMiddleware() // 2
+        let tokenAuthGroup = offerRoutes.grouped(tokenAuthMiddleware, guardAuthMiddleware) // 3
+        tokenAuthGroup.post(use: createHandler) // 1
+        tokenAuthGroup.get(use: getAllHandler) // 2
         offerRoutes.get(Offer.parameter, "demands",  use: getDemandsOfOfferHandler) // 3
-        offerRoutes.post(Offer.parameter, "demands", Demand.parameter, use: addDemandsHandler) // 4
-        offerRoutes.delete(Offer.parameter, use: deleteHandler) // 5
+        tokenAuthGroup.post(Offer.parameter, "demands", Demand.parameter, use: addDemandsHandler) // 4
+        tokenAuthGroup.delete(Offer.parameter, use: deleteHandler) // 5
         
         
     }

@@ -27,11 +27,15 @@ struct DemandController : RouteCollection {
          */
         
         let demandRoutes = router.grouped("api/demands")
-        demandRoutes.post(use: createHandler) // 1
-        demandRoutes.get(use: getAllHandler) // 2
+        let tokenAuthMiddleware = User.tokenAuthMiddleware() // 1
+        let guardAuthMiddleware = User.guardAuthMiddleware() // 2
+        let tokenAuthGroup = demandRoutes.grouped(tokenAuthMiddleware, guardAuthMiddleware) // 3
+        
+        tokenAuthGroup.post(use: createHandler) // 1
+        tokenAuthGroup.get(use: getAllHandler) // 2
         demandRoutes.get(Demand.parameter, "offer",  use: getOffersOfDemandHandler) // 3
-        demandRoutes.post(Demand.parameter, "offer", Offer.parameter, use: addOffersHandler) // 4
-        demandRoutes.delete(Demand.parameter, use: deleteHandler) // 5
+        tokenAuthGroup.post(Demand.parameter, "offer", Offer.parameter, use: addOffersHandler) // 4
+        tokenAuthGroup.delete(Demand.parameter, use: deleteHandler) // 5
         
         
     }

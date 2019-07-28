@@ -14,8 +14,15 @@ struct CityController : RouteCollection {
     // MARK: - Register Routes
     func boot(router: Router) throws {
         
+        // Create a TokenAuthenticationMiddleware for User. This uses BearerAuthenticationMiddleware to extract the bearer token out of the request. The middleware then converts this token into a logged in user.
+        let cityRoutes = router.grouped("api/cities")
+        let tokenAuthMiddleware = User.tokenAuthMiddleware()
+        let guardAuthMiddleware = User.guardAuthMiddleware()
+        let tokenAuthGroup = cityRoutes.grouped(tokenAuthMiddleware, guardAuthMiddleware)
+       
         /*
          Create a new route path for the api/ads
+     
          
          - Grouped Route (/api/ads) +  Request Type (POST, GET, PUT, DELETE) (+ Path component + Method)
          
@@ -24,8 +31,8 @@ struct CityController : RouteCollection {
          3. Get Request - Get the Ads of the City
          */
         
-        let cityRoutes = router.grouped("api/cities")
-        cityRoutes.post(use: createHandler) // 1
+        
+        tokenAuthGroup.post(use: createHandler) // 1
         cityRoutes.get(use: getAllHandler) // 2
         cityRoutes.get(City.parameter, "ads",  use: getAdsHandler) // 3
         

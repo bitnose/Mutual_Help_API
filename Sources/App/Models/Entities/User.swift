@@ -10,18 +10,15 @@ import Vapor
 import FluentPostgreSQL
 import Authentication
 
-/*
- 
- Class For the User
- 
- Class contains properties to hold:
- - ID : Optional id property that stores the ID of the model assigned by the database when it's saved
- - First Name
- - Last Name
- - Email
- - Password
- 
- */
+
+/// Class For the User
+
+/// Class contains properties to hold:
+/// - ID : Optional id property that stores the ID of the model assigned by the database when it's saved
+/// - First Name
+/// - Last Name
+/// - Email
+/// - Password
 
 final class User : Codable {
     
@@ -31,7 +28,7 @@ final class User : Codable {
     var email : String
     var password : String
     
-    // Init User
+/// Init User
     init(firstname: String, lastname: String, email: String, password : String) {
         self.firstname = firstname
         self.lastname = lastname
@@ -39,8 +36,12 @@ final class User : Codable {
         self.password = password
     }
     
-    // Public class of the User : Inner class to represent a public view of User (To protect password hashes you should never return them in responses)
-    
+/// Public class of the User : Inner class to represent a public view of User
+/// (To protect password hashes you should never return them in responses)
+/// - ID : Optional id property that stores the ID of the model assigned by the database when it's saved
+/// - First Name
+/// - Last Name
+/// - Email
     final class Public: Codable {
         var id: UUID?
         var firstname: String
@@ -138,8 +139,9 @@ extension User: TokenAuthenticatable { // 1
  5. Create a new user with the name Admin, username admin and the hashed password.
  6. Save the user and transform the result to Void, the return type of prepare(on:).
  7. Implement the required revert(on:). .done(on:) returns a pre-completed Future<Void>.
- TODO: - Password update
+ TODO: - Password update: You can either read an enviromental variable or generate a random password and print it out. 
  */
+
 // 1
 struct AdminUser: Migration {
     // 2
