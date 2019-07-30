@@ -57,12 +57,14 @@ public func configure(_ config: inout Config, _ env: inout Environment, _ servic
     /*
      Configure migrations:
      1. Add Model to the Migration list - Adds the new model to the migrations so Fluent prepares the table in the database
-     2. Add Migration to the MigrationConfig
+     2. Add Migration to the MigrationConfig : AdminUser
+     3. This adds the migration to MigrationConfig so Fluent prepares the database correctly to use the enum. Note this uses add(migration:database:) rather than add(model:database:) since UserType isn’t a model
      */
     
     var migrations = MigrationConfig()
     // 1
     migrations.add(model: Country.self, database: .psql)
+    migrations.add(migration: UserType.self, database: .psql) // 3
     migrations.add(model: User.self, database: .psql)
     migrations.add(model: Department.self, database: .psql)
     migrations.add(model: Token.self, database: .psql)
@@ -78,11 +80,12 @@ public func configure(_ config: inout Config, _ env: inout Environment, _ servic
     migrations.add(model: Heart.self, database: .psql)
     migrations.add(model: CategoryOfferPivot.self, database: .psql)
     migrations.add(model: CategoryDemandPivot.self, database: .psql)
-    // 2
-    //  migrations.add(migration: RootCategory.self, database: .psql)
-    migrations.add(migration: AdminUser.self, database: .psql)
     
+    //  migrations.add(migration: RootCategory.self, database: .psql)
+    migrations.add(migration: AdminUser.self, database: .psql)  // 2
+  //   migrations.add(migration: AdminUserToo.self, database: .psql)  // 2AdminUserToo
     services.register(migrations)
+    
     
     // Add the Fluent commands to your application, which allows you to manually run migrations and allows you to revert your migrations
     var commandConfig = CommandConfig.default()
@@ -93,5 +96,7 @@ public func configure(_ config: inout Config, _ env: inout Environment, _ servic
     let serverConfigure = NIOServerConfig.default(hostname: "localhost", port: 9090)
     services.register(serverConfigure)
     // Tells your application to use MemoryKeyedCache when asked for the KeyedCache service. The KeyedCache service is a key-value cache that backs sessions.
-    config.prefer(MemoryKeyedCache.self, for: KeyedCache.self) 
+    config.prefer(MemoryKeyedCache.self, for: KeyedCache.self)
+    
+    
 }

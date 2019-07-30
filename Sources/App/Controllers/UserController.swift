@@ -28,12 +28,14 @@ struct UserController : RouteCollection {
         /// 2. Create a TokenAuthenticationMiddleware for User. This uses BearerAuthenticationMiddleware to extract the bearer token out of the request. The middleware then convert            s this token into a logged in user. Create a
         /// 3. Create a GuardAuthMiddleware. Error to throw if the type is not authed.
         /// 4. Create a route group using tokenAuthMiddleware and guardAuthMiddleware to protect the route for creating a user with token authentication.
+        /// 5. Create an adminGroup for routes which requires the user have an admin access. (Right now all actions)
 
         let basicAuthMiddleware = User.basicAuthMiddleware(using: BCryptDigest()) // 1
         let basicAuthGroup = userRoute.grouped(basicAuthMiddleware)
         let tokenAuthMiddleware = User.tokenAuthMiddleware() // 2
         let guardAuthMiddleware = User.guardAuthMiddleware() // 3
         let tokenAuthGroup = userRoute.grouped(tokenAuthMiddleware, guardAuthMiddleware) // 4
+        let adminGroup = tokenAuthGroup.grouped(AdminMiddleware.self) // 5
         
         /* Route group type + Request Type (POST, GET, PUT, DELETE) (+ Path component + Method)
          1. Protected Get Request : Retrieve all users
@@ -44,22 +46,24 @@ struct UserController : RouteCollection {
          6. Delete Request : Delete all tokens of the user.
         */
         
-        tokenAuthGroup.get(use: getAllHandler) // 1
-        tokenAuthGroup.get(User.parameter, use: getHandler) // 2
+        adminGroup.get(use: getAllHandler) // 1
+        adminGroup.get(User.parameter, use: getHandler) // 2
         userRoute.post(LoginPostData.self, at: "login", use: loginPostHandler) // 3
         basicAuthGroup.post(User.self, use: createHandler) // 4
-        tokenAuthGroup.delete("logout", use: logoutHandler) // 5
-        tokenAuthGroup.delete("logout", "all", use: destroyAllTokensHandler) // 6
+        adminGroup.delete("logout", use: logoutHandler) // 5
+        adminGroup.delete("logout", "all", use: destroyAllTokensHandler) // 6
     }
     
     // MARK: - Route Handlers
 
 /// Create User
 ///  1. Function has a User as a parameter which is a decoded from the request and returns the public user.
+///  1.a) Set the usertype to be a standard.
 ///  2. This hashes the user's password before saving it in the database
 ///  3. This uses extension for Future<User>. As a result you don't need to unwrap the result of the save yourself.
     
     func createHandler(_ req: Request, user: User) throws -> Future<User.Public> { //1
+        user.userType = .standard // 1a
         user.password = try BCrypt.hash(user.password) // 2
         return user.save(on: req).convertToPublic() // 3
     }
@@ -67,10 +71,12 @@ struct UserController : RouteCollection {
     
 /// Retrieve all users
 /// 1. Function retrieves all users and returns public versions of them.
+    /// TODO : Create a Middleware to Look the usertype.
 /// 2. Decodes the data returned from the query into User.Public.
  
     
     func getAllHandler(_ req: Request) throws -> Future<[User.Public]> { // 1
+      
         return User.query(on: req).decode(data: User.Public.self).all() // 2
     }
     

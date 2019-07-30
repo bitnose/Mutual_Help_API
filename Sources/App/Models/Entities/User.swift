@@ -19,6 +19,7 @@ import Authentication
 /// - Last Name
 /// - Email
 /// - Password
+/// - Usertype : Admin / Standard / Restricted
 
 final class User : Codable {
     
@@ -27,13 +28,15 @@ final class User : Codable {
     var lastname : String
     var email : String
     var password : String
+    var userType : UserType
     
 /// Init User
-    init(firstname: String, lastname: String, email: String, password : String) {
+    init(firstname: String, lastname: String, email: String, password : String, userType: UserType) {
         self.firstname = firstname
         self.lastname = lastname
         self.email = email
         self.password = password
+        self.userType = userType
     }
     
 /// Public class of the User : Inner class to represent a public view of User
@@ -136,7 +139,7 @@ extension User: TokenAuthenticatable { // 1
  2. Defien which database type this migration is for.
  3. Implement the required prepare(on:).
  4. Create a password hash and terminate with a fatal error if this fails.
- 5. Create a new user with the name Admin, username admin and the hashed password.
+ 5. Create a new user with the name Admin, username admin, the hashed password and userType: .admin.
  6. Save the user and transform the result to Void, the return type of prepare(on:).
  7. Implement the required revert(on:). .done(on:) returns a pre-completed Future<Void>.
  TODO: - Password update: You can either read an enviromental variable or generate a random password and print it out. 
@@ -154,7 +157,11 @@ struct AdminUser: Migration {
             fatalError("Failed to create admin user")
         }
         // 5
-        let user = User(firstname: "Admin", lastname: "Admin", email: "admin@admin.admin", password: hashedPassword)
+        let user = User(firstname: "Admin",
+                        lastname: "Admin",
+                        email: "admin@admin.admin",
+                        password: hashedPassword,
+                        userType: .admin)
         // 6
         return user.save(on: connection).transform(to: ())
     }
@@ -163,6 +170,33 @@ struct AdminUser: Migration {
         return .done(on: connection)
     }
 }
+
+// 1
+struct AdminUserToo: Migration {
+    // 2
+    typealias Database = PostgreSQLDatabase
+    // 3
+    static func prepare(on connection: PostgreSQLConnection) -> Future<Void> {
+        // 4
+        let password = try? BCrypt.hash("password")
+        guard let hashedPassword = password else {
+            fatalError("Failed to create admin user")
+        }
+        // 5
+        let user = User(firstname: "Admin",
+                        lastname: "Admin",
+                        email: "admin@admin.fi",
+                        password: hashedPassword,
+                        userType: .admin)
+        // 6
+        return user.save(on: connection).transform(to: ())
+    }
+    // 7
+    static func revert(on connection: PostgreSQLConnection) -> Future<Void> {
+        return .done(on: connection)
+    }
+}
+
 
 extension User : PasswordAuthenticatable {} // Conform User to PasswordAuthenticatable. Allows Vapor to authenticate users with a uername and password when they log in.
 
