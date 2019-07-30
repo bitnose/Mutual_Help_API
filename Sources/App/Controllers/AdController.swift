@@ -107,10 +107,6 @@ struct AdController : RouteCollection {
      */
     
     func getAllHandler(_ req: Request) throws -> Future<[Ad]> { // 1
-        
-        let user = try req.requireAuthenticated(User.self)
-        print(user)
-        
         return Ad.query(on: req).all() // 2
         
     }
