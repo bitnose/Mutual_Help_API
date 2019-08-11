@@ -2,7 +2,7 @@ import Vapor
 import Fluent
 
 /// Register your application's routes here.
-public func routes(_ router: Router) throws {
+public func routes(_ router: Router, awsConfig: AwsConfig) throws {
     
     // Basic "It works" example
     
@@ -38,5 +38,9 @@ public func routes(_ router: Router) throws {
     
     let userController = UserController() // 1
     try router.register(collection: userController) // 2
+    
+    let awsController = AwsController(awsConfig: awsConfig)
+    try awsController.boot(router: router)
+
     
 }

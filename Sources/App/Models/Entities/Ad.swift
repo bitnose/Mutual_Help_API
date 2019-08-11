@@ -108,18 +108,6 @@ extension Ad {
     }
     
     
-    static func adImage(_ name: String, to ad: Future<Ad>, on req: Request) throws -> Future<Void> {
-        
-        return ad.flatMap(to: Void.self) { ad in
-            if ad.images == nil {
-                let images = [name]
-                ad.images = images
-            } else {
-                ad.images!.append(name)
-            }
-            return ad.save(on: req).transform(to: ())
-        }
-    }
     
     
 }

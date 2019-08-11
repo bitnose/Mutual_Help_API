@@ -16,7 +16,7 @@ struct ContactController : RouteCollection {
         let contactRoutes = router.grouped("api/contacts")
         let tokenAuthMiddleware = User.tokenAuthMiddleware()
         let guardAuthMiddleware = User.guardAuthMiddleware()
-        let tokenAuthGroup = contactRoutes.grouped(tokenAuthMiddleware, guardAuthMiddleware)
+        let adminGroup = contactRoutes.grouped(tokenAuthMiddleware, guardAuthMiddleware, AdminMiddleware())
         
         /*
          Create a new route path for the api/ads
@@ -29,9 +29,10 @@ struct ContactController : RouteCollection {
          */
         
         
-        tokenAuthGroup.post( use: createHandler) // 1
+        adminGroup.post( use: createHandler) // 1
         contactRoutes.get(use: getAllHandler) // 2
         contactRoutes.delete(Contact.parameter, use: deleteHandler) // 3
+        contactRoutes.get(UUID.parameter, use: getContactHandler)
         
     }
     
@@ -46,6 +47,7 @@ struct ContactController : RouteCollection {
     
     func createHandler(_ req: Request) throws -> Future<Contact> { // 1
         return try req.content.decode(Contact.self).flatMap(to: Contact.self) { contact in // 2
+            print(contact.contactName)
             return contact.save(on: req) // 3
         }
       
@@ -74,6 +76,25 @@ struct ContactController : RouteCollection {
             .delete(on: req) // 3
             .transform(to: .noContent) // 4
     }
+    
+    /// Get contact by ID
+    /// 1. Extract the UUID to get from the request’s parameters.
+    /// 2. Make a query to the Contact table and filter the result with the extracted id.
+    /// 3. If foundContact equals to the existingContact return the existingContact.
+    /// 4. Otherwise throw an Abort.
+    
+    func getContactHandler(_ req: Request) throws -> Future<Contact> {
+        
+        let id = try req.parameters.next(UUID.self) // 1
+        return Contact.query(on: req).filter(\Contact.id == id).first().map(to: Contact.self) { foundContact in // 2
+            if let existingContact = foundContact { // 3
+                return existingContact // 3
+            } else {
+                throw Abort(.notFound) // 4
+            }
+        }
+    }
+    
     
 
     

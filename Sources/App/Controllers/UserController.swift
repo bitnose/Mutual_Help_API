@@ -8,7 +8,6 @@
 
 import Vapor
 import Crypto
-import JWT
 import Fluent
 
 // Define different route handlers. To access routes you must register handlers with the router. A simple way to do this is to call the functions inside your controller froum routes.swift
@@ -35,7 +34,7 @@ struct UserController : RouteCollection {
         let tokenAuthMiddleware = User.tokenAuthMiddleware() // 2
         let guardAuthMiddleware = User.guardAuthMiddleware() // 3
         let tokenAuthGroup = userRoute.grouped(tokenAuthMiddleware, guardAuthMiddleware) // 4
-        let adminGroup = tokenAuthGroup.grouped(AdminMiddleware.self) // 5
+        let adminGroup = tokenAuthGroup.grouped(AdminMiddleware()) // 5
         
         /* Route group type + Request Type (POST, GET, PUT, DELETE) (+ Path component + Method)
          1. Protected Get Request : Retrieve all users

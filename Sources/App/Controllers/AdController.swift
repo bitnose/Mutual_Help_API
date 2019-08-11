@@ -25,6 +25,7 @@ struct AdController : RouteCollection {
         let tokenAuthMiddleware = User.tokenAuthMiddleware()
         let guardAuthMiddleware = User.guardAuthMiddleware()
         let tokenAuthGroup = adRoutes.grouped(tokenAuthMiddleware, guardAuthMiddleware)
+        let adminGroup = tokenAuthGroup.grouped(AdminMiddleware())
         
     
         /*
@@ -50,10 +51,10 @@ struct AdController : RouteCollection {
          
          */
         
-        tokenAuthGroup.post(use: createHandler) // 1
+        adminGroup.post(use: createHandler) // 1
         tokenAuthGroup.get(use: getAllHandler) // 2
         adRoutes.get(Ad.parameter, use: adHandler) // 3
-        tokenAuthGroup.delete(Ad.parameter, use: deleteHandler) // 4
+        adminGroup.delete(Ad.parameter, use: deleteHandler) // 4
         adRoutes.get(Ad.parameter, "city", use: getCityHandler) // 5
 //        adRoutes.post(Ad.parameter, "categories", Category.parameter, use: addCategoriesHandler) // 6
 //        adRoutes.get(Ad.parameter, "categories", use: getCategoriesHandler) // 7
@@ -65,7 +66,7 @@ struct AdController : RouteCollection {
         // We need these apis in our editAd.js
         adRoutes.get(Ad.parameter, "demands", use: getDemandsHandler) // 11
         adRoutes.get(Ad.parameter, "offers", use: getOffersHandler) // 12
-        tokenAuthGroup.put(Ad.parameter, use: updateHandler) // 13
+        adminGroup.put(Ad.parameter, use: updateHandler) // 13
  //       adRoutes.get("all", Department.parameter, use: getAdOfPerimeter)
      //   adRoutes.get("test", Department.parameter, use: test)
         adRoutes.get("all", Department.parameter, use: getAdsOfPerimeter)
@@ -82,12 +83,12 @@ struct AdController : RouteCollection {
     
     
     func createHandler(_ req: Request) throws -> Future<Ad> {
-        
+
         return try req.content.decode(Ad.self).flatMap(to: Ad.self) { ad in // 1
+            print(ad.note)
             return ad.save(on: req) // 3
             
         }
-        
     }
     
     /*
@@ -160,6 +161,9 @@ struct AdController : RouteCollection {
      */
     
     func getCityHandler(_ req: Request) throws -> Future<City> { // 1
+        
+        print("moi")
+
         return try req.parameters.next(Ad.self).flatMap(to: City.self) { ad in // 2
             ad.city.get(on: req) // 3
             
@@ -175,7 +179,9 @@ struct AdController : RouteCollection {
      */
     
     func getDemandsHandler(_ req: Request) throws -> Future<[Demand]> {
+        print("moi")
         return try req.parameters.next(Ad.self).flatMap(to: [Demand].self) { ad in
+            
             try ad.demands.query(on: req).all()
         }
     }
@@ -191,6 +197,8 @@ struct AdController : RouteCollection {
      */
     
     func getOffersHandler(_ req: Request) throws -> Future<[Offer]> {
+        print("moi")
+
         return try req.parameters.next(Ad.self).flatMap(to: [Offer].self) { ad in
             try ad.offers.query(on: req).all()
         }
@@ -327,7 +335,7 @@ struct AdController : RouteCollection {
                 
                 return city.department.get(on: req).map(to: AdData.self) { department in // 8.
                     
-                     AdData(note: ad.note, adID: try ad.requireID(), demands: demands, offers: offers, department: department, city: city, hearts: hearts.count) // 9.
+                     AdData(note: ad.note, adID: try ad.requireID(), images: ad.images, demands: demands, offers: offers, department: department, city: city, hearts: hearts.count, show: ad.show, createdAt: ad.adCreatedAt ?? Date(), generosity: ad.generosity) // 9.
                 }
             }
         }
@@ -405,6 +413,8 @@ struct AdObject : Content {
 /*
  A New Datatype : AdData
  - Note of the Ad
+ - Id of the Ad
+ - Array of images names
  - Demands of the Ad
  - Offers of the Ad
  - City of the Ad
@@ -415,11 +425,15 @@ struct AdObject : Content {
 struct AdData : Content {
     let note : String
     let adID : UUID
+    let images : [String]?
     let demands : [Demand]
     let offers : [Offer]
     let department : Department
     let city : City
     let hearts : Int
+    let show : Bool
+    let createdAt : Date
+    let generosity : Int
     
     
     

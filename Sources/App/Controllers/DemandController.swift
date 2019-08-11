@@ -29,13 +29,14 @@ struct DemandController : RouteCollection {
         let demandRoutes = router.grouped("api/demands")
         let tokenAuthMiddleware = User.tokenAuthMiddleware() // 1
         let guardAuthMiddleware = User.guardAuthMiddleware() // 2
-        let tokenAuthGroup = demandRoutes.grouped(tokenAuthMiddleware, guardAuthMiddleware) // 3
+        let adminGroup = demandRoutes.grouped(tokenAuthMiddleware, guardAuthMiddleware, AdminMiddleware()) // 3
+    
         
-        tokenAuthGroup.post(use: createHandler) // 1
-        tokenAuthGroup.get(use: getAllHandler) // 2
+        adminGroup.post(use: createHandler) // 1
+        adminGroup.get(use: getAllHandler) // 2
         demandRoutes.get(Demand.parameter, "offer",  use: getOffersOfDemandHandler) // 3
-        tokenAuthGroup.post(Demand.parameter, "offer", Offer.parameter, use: addOffersHandler) // 4
-        tokenAuthGroup.delete(Demand.parameter, use: deleteHandler) // 5
+        adminGroup.post(Demand.parameter, "offer", Offer.parameter, use: addOffersHandler) // 4
+        adminGroup.delete(Demand.parameter, use: deleteHandler) // 5
         
         
     }
@@ -51,6 +52,7 @@ struct DemandController : RouteCollection {
     
     func createHandler(_ req: Request) throws -> Future<Demand> { // 1
         return try req.content.decode(Demand.self).flatMap(to: Demand.self) { demand in
+            print(demand.demand)
             return demand.save(on: req) // 3
         }// 2
         

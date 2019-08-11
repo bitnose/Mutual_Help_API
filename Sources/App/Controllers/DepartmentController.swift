@@ -17,6 +17,14 @@ struct DepartmentController : RouteCollection {
     
     func boot(router: Router) throws {
         
+        /// 1. Create a TokenAuthenticationMiddleware for User. This uses BearerAuthenticationMiddleware to extract the bearer token out of the request. The middleware then converts this token into a logged in user.
+        /// 2. Create an instance of GuardAuthenticationMiddleware which ensures that requests contain valid authorization
+        /// 3. Create a adminGroup for the routes with admin access. 
+
+        let departmentRoutes = router.grouped("api/departments")
+        let tokenAuthMiddleware = User.tokenAuthMiddleware() // 1
+        let guardAuthMiddleware = User.guardAuthMiddleware() // 2
+        let adminGroup = departmentRoutes.grouped(tokenAuthMiddleware, guardAuthMiddleware, AdminMiddleware()) // 3
         
         /*
          Create a new route path
@@ -31,38 +39,28 @@ struct DepartmentController : RouteCollection {
          7. Get Request : /api/departments/<DEPARTMENT_ID>/perimeter to get the departments inside of the Perimeter of the Selected Department
          */
         
-        let departmentRoutes = router.grouped("api/departments")
-        let tokenAuthMiddleware = User.tokenAuthMiddleware() // 1
-        let guardAuthMiddleware = User.guardAuthMiddleware() // 2
-        let tokenAuthGroup = departmentRoutes.grouped(tokenAuthMiddleware, guardAuthMiddleware) // 3
-        
-            tokenAuthGroup.post(use: createHandler) // 1
-            departmentRoutes.get(use: getAllHandler) // 2
-            departmentRoutes.get(Department.parameter, use: getHandler) // 3
-            departmentRoutes.get("sorted", use: sortedHandler) // 4
-            departmentRoutes.get(Department.parameter, "cities", use: getCitiesHandler) // 5
-            tokenAuthGroup.post(Department.parameter, "perimeter", Department.parameter, use: addDepartmentsHandler) // 6
-            departmentRoutes.get(Department.parameter, "perimeter", use: getDepartmentsOfPerimeter) // 7
-        
-        /*
-         1. Instance of GuardAuthenticationMiddleware which ensures that requests contain valid authorization
-         */
-        
-        //    let guardAuthMiddleware = User.guardAuthMiddleware() // 1
+        adminGroup.post(use: createHandler) // 1
+        departmentRoutes.get(use: getAllHandler) // 2
+        departmentRoutes.get(Department.parameter, use: getHandler) // 3
+        departmentRoutes.get("sorted", use: sortedHandler) // 4
+        departmentRoutes.get(Department.parameter, "cities", use: getCitiesHandler) // 5
+        adminGroup.post(Department.parameter, "perimeter", Department.parameter, use: addDepartmentsHandler) // 6
+        departmentRoutes.get(Department.parameter, "perimeter", use: getDepartmentsOfPerimeter) // 7
+    
+ 
     }
     
     // MARK: - HANDLERS
     
-    /*
-     Create Deparment
-     1. Function return Future<Department>
-     2. Decode the request's JSON into an object. This is simple because the Model conforms to Content. Decode returns a Future; use flatMap(to:) to extract the object when decoding completes.
-     3. Save the object.
-     */
+    /// Create Deparment
+    /// 1. Function return Future<HTTPResponse>
+    /// 2. Decode the request's JSON into an object. This is simple because the Model conforms to Content. Decode returns a Future; use flatMap(to:) to extract the object when decoding completes.
+    /// 3. Save the object and transform the response to HTTPResponseStatus: created.
     
-    func createHandler(_ req: Request) throws -> Future<Department> { // 1
-        return try req.content.decode(Department.self).flatMap(to: Department.self) { department in // 2
-            return department.save(on: req) // 3
+    func createHandler(_ req: Request) throws -> Future<HTTPResponse> { // 1
+        return try req.content.decode(Department.self).flatMap(to: HTTPResponse.self) { department in // 2
+            print(department.countryID, department.departmentName)
+            return department.save(on: req).transform(to: HTTPResponse(status: .created)) // 3
         }
 
     }

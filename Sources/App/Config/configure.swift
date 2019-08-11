@@ -14,10 +14,12 @@ public func configure(_ config: inout Config, _ env: inout Environment, _ servic
     
     try services.register(FluentPostgreSQLProvider()) // 1
     try services.register(AuthenticationProvider()) // 2
+    /// Configure AWS S3 Signer
+    let awsConfig = try AwsConfiguration().setup(services: &services)
 
     // Register routes to the router
     let router = EngineRouter.default()
-    try routes(router)
+    try routes(router, awsConfig: awsConfig)
     services.register(router, as: Router.self)
 
     /*
@@ -29,9 +31,10 @@ public func configure(_ config: inout Config, _ env: inout Environment, _ servic
      */
     var middlewares = MiddlewareConfig() // 1
     middlewares.use(ErrorMiddleware.self) // 2
+    middlewares.use(FileMiddleware.self) // Serves files from `Public/` directory
     middlewares.use(SessionsMiddleware.self) // 2
     services.register(middlewares) // 4
-
+   
     // There is a default limit of 1 million bytes for incoming requests, which you can override by registering a custom NIOServerConfig instance like this:
     services.register(NIOServerConfig.default(maxBodySize: 20_000_000))
     
