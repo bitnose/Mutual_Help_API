@@ -17,14 +17,19 @@ import Foundation
 import FluentPostgreSQL
 
 
-// Heart Model
-
+/// Heart Model
+/// - id : UUID
+/// - heartCreatedAt : A timestamp of the moment the model was created
+/// - adID : The parent of the heart (This ad owns the heart)
+/// - token : A token identifies the user which created the heart
+/// - deletedAt: A property for Fluent to store the date you performed a soft delete on the model
 final class Heart : Codable {
     
     var id : UUID?
     var heartCreatedAt : Date?
     var adID : Ad.ID
     var token : String
+    var deletedAt: Date?
     
     init(token: String, adID : Ad.ID) {
         self.token = token
@@ -32,7 +37,11 @@ final class Heart : Codable {
     }
     
     static var createdAtKey: TimestampKey? = \.heartCreatedAt
+    // Add to new key path that Fluent checks when you call delete(on:). If the key path exists, Fluent sets the current date on the property and saves the updated model. Otherwise, it deletes the model from the database
+    static var deletedAtKey : TimestampKey? = \.deletedAt
 }
+
+
 
 
 // Conform models

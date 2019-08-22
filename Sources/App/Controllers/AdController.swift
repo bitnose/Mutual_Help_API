@@ -54,22 +54,19 @@ struct AdController : RouteCollection {
         adminGroup.post(use: createHandler) // 1
         tokenAuthGroup.get(use: getAllHandler) // 2
         adRoutes.get(Ad.parameter, use: adHandler) // 3
-        adminGroup.delete(Ad.parameter, use: deleteHandler) // 4
+        adminGroup.delete(Ad.parameter, "delete", use: deleteHandler) // 4
         adRoutes.get(Ad.parameter, "city", use: getCityHandler) // 5
 //        adRoutes.post(Ad.parameter, "categories", Category.parameter, use: addCategoriesHandler) // 6
 //        adRoutes.get(Ad.parameter, "categories", use: getCategoriesHandler) // 7
 //        adRoutes.delete(Ad.parameter, "categories", Category.parameter, use: removeCategoriesHandler) // 8
         adRoutes.get(Ad.parameter, "contact", use: getContactHandler) // 10
-//       adRoutes.post("images", Ad.parameter, use: addProfilePicturePostHandler)
-        
-        
-        // We need these apis in our editAd.js
         adRoutes.get(Ad.parameter, "demands", use: getDemandsHandler) // 11
         adRoutes.get(Ad.parameter, "offers", use: getOffersHandler) // 12
-        adminGroup.put(Ad.parameter, use: updateHandler) // 13
+        adminGroup.put(Ad.parameter, "update", use: updateAdDataHandler) // 13
  //       adRoutes.get("all", Department.parameter, use: getAdOfPerimeter)
      //   adRoutes.get("test", Department.parameter, use: test)
         adRoutes.get("all", Department.parameter, use: getAdsOfPerimeter)
+        adRoutes.get(Ad.parameter, "update", use: updateAdDataHandler)
        
     }
     // MARK: - HANDLERS
@@ -122,14 +119,12 @@ struct AdController : RouteCollection {
         return try req.parameters.next(Ad.self) // 2
     }
     
-    /*
-     Delete by ID
-     1. Method to DELETE to /api/ads/<ID> that returns Future<HTTPStatus>
-     2. Extract the Object to delete from the request’s parameters.
-     3. Delete the Object using delete(on:). Instead of requiring you to unwrap the returned Future, Fluent allows you to call delete(on:) directly on that Future. This helps tidy up code and reduce nesting. Fluent provides convenience functions for delete, update, create and save.
-     4. Transform the result into a 204 No Content response. This tells the client the request has successfully completed but there’s no content to return.
-     */
-    
+
+    /// Delete by ID
+    /// 1. Method to DELETE to /api/ads/<ID>/delete that returns Future<HTTPStatus>
+    /// 2. Extract the Object to delete from the request’s parameters.
+    /// 3. Delete the Object using delete(on:). Instead of requiring you to unwrap the returned Future, Fluent allows you to call delete(on:) directly on that Future. This helps tidy up code and reduce nesting. Fluent provides convenience functions for delete, update, create and save.
+    /// 4. Transform the result into a 204 No Content response. This tells the client the request has successfully completed but there’s no content to return.
     func deleteHandler(_ req: Request) throws -> Future<HTTPStatus> { // 1
         return try req.parameters.next(Ad.self) // 2
             .delete(on: req) // 3
@@ -161,8 +156,6 @@ struct AdController : RouteCollection {
      */
     
     func getCityHandler(_ req: Request) throws -> Future<City> { // 1
-        
-        print("moi")
 
         return try req.parameters.next(Ad.self).flatMap(to: City.self) { ad in // 2
             ad.city.get(on: req) // 3
@@ -206,7 +199,6 @@ struct AdController : RouteCollection {
     
     /*
      Update Ad
-     
      1. Function that returns Future<Ad>.
      2. Use flatMap(to:_:_:), the dual future form of flatMap, to wait for both the parameter extraction and content decoding to complete. This provides both the ad from the database and ad from the request body to the closure.
      3. Update the ad’s properties with the new values.
@@ -227,7 +219,6 @@ struct AdController : RouteCollection {
             ad.cityID = updatedAd.cityID
             ad.contactID = updatedAd.contactID
             ad.images = updatedAd.images
-            ad.show = updatedAd.show
             // 4
             return ad.save(on: req)
         }
@@ -277,7 +268,7 @@ struct AdController : RouteCollection {
                 return flattenCities.flatMap(to: AdsOfPerimeterData.self) { arrayOfArraysOfCities in // 8.
 
                     let arrayOfCities = arrayOfArraysOfCities.flatMap {$0} // 9.
-                    let ads = try arrayOfCities.map{try $0.adsOfCity.query(on: req).filter(\.show == true).sort(\.generosity, .ascending).range(..<50).all() } // 10.
+                    let ads = try arrayOfCities.map{try $0.adsOfCity.query(on: req).sort(\.generosity, .ascending).range(..<50).all() } // 10.
                     let flattenAds = ads.flatten(on: req) // 11.
 
                     return flattenAds.flatMap(to:AdsOfPerimeterData.self) { arrayOfArrayOfAds in // 12.
@@ -335,12 +326,39 @@ struct AdController : RouteCollection {
                 
                 return city.department.get(on: req).map(to: AdData.self) { department in // 8.
                     
-                     AdData(note: ad.note, adID: try ad.requireID(), images: ad.images, demands: demands, offers: offers, department: department, city: city, hearts: hearts.count, show: ad.show, createdAt: ad.adCreatedAt ?? Date(), generosity: ad.generosity) // 9.
+                     AdData(note: ad.note, adID: try ad.requireID(), images: ad.images, demands: demands, offers: offers, department: department, city: city, hearts: hearts.count, createdAt: ad.adCreatedAt ?? Date(), generosity: ad.generosity) // 9.
                 }
             }
         }
     }
     
+    // MARK: - Update ad handler
+    
+    /// Handler to update the existing ad with new data
+    /// 1. Use flatMap(to:_:_:), the dual future form of flatMap, to wait for both the parameter extraction and content decoding to complete.
+    /// 2. The ad from the database and updated ad data from the request body to the closure.
+    /// 3. Update the ad with the new data.
+    /// 4.-5. Call the function to update the demands and the offers.
+    /// 6. Save the ad and transform the response to HTTPStatus.
+    func updateAdDataHandler(_ req: Request) throws -> Future<HTTPStatus> {
+        // 1.
+        return try flatMap(
+            to: HTTPStatus.self,
+            req.parameters.next(Ad.self),
+            req.content.decode(AdInfoData.self)
+        // 2.
+        ) { ad, updatedAd in
+            // 3.
+            ad.cityID = updatedAd.cityID
+            ad.generosity = updatedAd.generosity
+            ad.note = updatedAd.note
+            ad.contactID = updatedAd.contactID
+            
+            try Demand.updateDemands(updatedAd.demands, to: ad, on: req) // 4.
+            try Offer.updateOffers(updatedAd.offers, to: ad, on: req) // 5.
+            return ad.save(on: req).transform(to: HTTPStatus(statusCode: 200)) // 6.
+        }
+    }
 }
 
 
@@ -431,10 +449,31 @@ struct AdData : Content {
     let department : Department
     let city : City
     let hearts : Int
-    let show : Bool
     let createdAt : Date
     let generosity : Int
-    
-    
-    
+}
+
+
+/// Edit Ad - Data type
+/// - note : Note of the Ad
+/// - adID : UUID of the Ad
+/// - demands : Array of Strings
+/// - offers : Array of Strings
+/// - cityID : cityID of the Ad
+/// - generosity : Integer value to measure the generosity of the ad
+/// - adLink : Link to the ad in the facebook
+/// - facebookLink : Link to the contact's facebook messenger
+/// - contactName : Name of the contact
+
+struct  AdInfoData : Content {
+    let note : String
+    let adID : UUID
+    let demands : [String]
+    let offers : [String]
+    let cityID : UUID
+    let generosity : Int
+    let contactID : UUID
+    let adLink : String
+    let facebookLink : String
+    let contactName : String
 }

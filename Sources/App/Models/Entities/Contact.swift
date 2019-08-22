@@ -10,7 +10,12 @@ import Foundation
 import FluentPostgreSQL
 
 
-// Contact Model
+/// Contact Model
+/// - id : UUID
+/// - adLink : A Link to the ad in the facebook
+/// - facebookLink : A Link to the messenger of the contact
+/// - createdAt : A timestamp of the moment when the model was created.
+/// - deletedAt: A property for Fluent to store the date you performed a soft delete on the model.
 
 final class Contact : Codable {
     
@@ -19,7 +24,7 @@ final class Contact : Codable {
     var facebookLink : String
     var contactName : String
     var createdAt : Date?
-    
+    var deletedAt: Date?
     
     // Initialize
     init(adLink : String, facebookLink : String, contactName : String) {
@@ -30,6 +35,8 @@ final class Contact : Codable {
     }
     
     static var createdAtKey: TimestampKey? = \.createdAt // Creates a timestamp automatically when the model was created
+    // Add to new key path that Fluent checks when you call delete(on:). If the key path exists, Fluent sets the current date on the property and saves the updated model. Otherwise, it deletes the model from the database
+    static var deletedAtKey : TimestampKey? = \.deletedAt
 }
 
 

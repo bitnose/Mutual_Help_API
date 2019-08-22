@@ -26,13 +26,15 @@ struct ContactController : RouteCollection {
          1. Post Request - Post route with method which creates a new Contact
          2. Get Request - Retrieve all Contacts
          3. Delete Request - Delete Contact by ID
+         4. Get Request - Get the contact by ID
+         5. Put Request - Update the existing contact
          */
-        
         
         adminGroup.post( use: createHandler) // 1
         contactRoutes.get(use: getAllHandler) // 2
         contactRoutes.delete(Contact.parameter, use: deleteHandler) // 3
-        contactRoutes.get(UUID.parameter, use: getContactHandler)
+        contactRoutes.get(UUID.parameter, use: getContactHandler) // 4
+        adminGroup.put(Contact.parameter, "update", use: updateContactHandler) // 5
         
     }
     
@@ -95,7 +97,28 @@ struct ContactController : RouteCollection {
         }
     }
     
+    /// Handler to update the existing contact with the new data
+    /// 1. Use flatMap(to:_:_:), the dual future form of flatMap, to wait for both the parameter extraction and content decoding to complete.
+    /// 2. The contact from the database and updated contact data from the request body to the closure.
+    /// 3. Update the contact with the new data.
+    /// 4. Save the contact.
     
+    func updateContactHandler(_ req: Request) throws -> Future<HTTPResponseStatus> {
+        // 1
+        return try flatMap(
+            to: HTTPStatus.self,
+            req.parameters.next(Contact.self),
+            req.content.decode(Contact.self)
+            // 2
+        ) { contact, updatedContact in
+            // 3
+            contact.adLink = updatedContact.adLink
+            contact.contactName = updatedContact.contactName
+            contact.facebookLink = updatedContact.facebookLink
+            // 4
+            return contact.save(on: req).transform(to: .created)
+        }
+    }
 
     
     

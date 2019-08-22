@@ -15,12 +15,12 @@ import Authentication
 
 /// Class contains properties to hold:
 /// - ID : Optional id property that stores the ID of the model assigned by the database when it's saved
-/// - First Name
-/// - Last Name
-/// - Email
-/// - Password
-/// - Usertype : Admin / Standard / Restricted
-
+/// - firstName : A First Name of the user
+/// - lastName : A Last Name of the user
+/// - email : an email address of the user
+/// - password : a password of the user 
+/// - usertype : Admin / Standard / Restricted
+/// - deletedAt: A property for Fluent to store the date you performed a soft delete on the model
 final class User : Codable {
     
     var id : UUID?
@@ -29,6 +29,7 @@ final class User : Codable {
     var email : String
     var password : String
     var userType : UserType
+    var deletedAt: Date?
     
 /// Init User
     init(firstname: String, lastname: String, email: String, password : String, userType: UserType) {
@@ -38,6 +39,9 @@ final class User : Codable {
         self.password = password
         self.userType = userType
     }
+    
+    // Add to new key path that Fluent checks when you call delete(on:). If the key path exists, Fluent sets the current date on the property and saves the updated model. Otherwise, it deletes the model from the database
+    static var deletedAtKey : TimestampKey? = \.deletedAt
     
 /// Public class of the User : Inner class to represent a public view of User
 /// (To protect password hashes you should never return them in responses)

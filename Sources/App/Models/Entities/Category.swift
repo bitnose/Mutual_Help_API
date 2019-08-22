@@ -10,19 +10,24 @@ import Foundation
 import FluentPostgreSQL
 
 
-// The Category
+/// The Category
+/// - deletedAt: A property for Fluent to store the date you performed a soft delete on the model
 
 final class Category : Codable {
     
     var id : UUID?
     var name : String
     var mainCategoryID : Category.ID
+    var deletedAt: Date?
     
     init(name : String, mainCategoryID : Category.ID) {
         self.name = name
         self.mainCategoryID = mainCategoryID
         
     }
+    
+    // Add to new key path that Fluent checks when you call delete(on:). If the key path exists, Fluent sets the current date on the property and saves the updated model. Otherwise, it deletes the model from the database
+    static var deletedAtKey : TimestampKey? = \.deletedAt
 }
 
 // Conform models

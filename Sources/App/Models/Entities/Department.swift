@@ -10,12 +10,12 @@ import Vapor
 import Foundation
 import FluentPostgreSQL
 
-/*
- Class for Departments
- - department_Number : Int
- - department_Name : String
- - id : ID
- */
+ /// Class for Departments
+ /// - id : UUID
+ /// - departmentNumber : A number of the department
+ /// - departmentName : A name of the department
+ /// - countryID : A country where the department locates (a parent)
+ /// - deletedAt: A property for Fluent to store the date you performed a soft delete on the model
 
 final class Department : Codable {
     
@@ -23,6 +23,7 @@ final class Department : Codable {
     var departmentNumber : Int
     var departmentName : String
     var countryID : Country.ID
+    var deletedAt: Date?
     
     
     
@@ -32,6 +33,8 @@ final class Department : Codable {
         self.countryID = countryID
         
     }
+    // Add to new key path that Fluent checks when you call delete(on:). If the key path exists, Fluent sets the current date on the property and saves the updated model. Otherwise, it deletes the model from the database
+    static var deletedAtKey : TimestampKey? = \.deletedAt
 }
 
 // Conform models
@@ -93,6 +96,23 @@ extension Department {
             let pivot = try DepartmentDepartmentPivot(department, existingDepartment) // 3
             return pivot.save(on: req).transform(to: ()) // 4
         }
+    }
+    
+    /// Static function to create a pivot model between two department models. Method takes an id of department model, a department model and a request as parameters. Returns void.
+    /// 1. Make a query to the Department table in the database, filter the result with the id and get the first result. FlatMap the Future<Department> to a Future<Void>.
+    /// 2. Ensure that the existingDepartment was found ie. is not a nul.
+    /// 3. Create a pivot model between the two department models. Same-Model consequence is that you will not be able to use the attach convenience method to add to the pivot table so you need to manually create one.
+    /// 4. Save the pivot model and transform the future to void.
+    static func addPivot(neighbourID: UUID, to department: Department, on req: Request) throws -> Future<Void> {
+        
+        return Department.query(on: req).filter(\Department.id == neighbourID).first().flatMap(to: Void.self) { existingDepartment in // 1
+            guard let foundDepartment = existingDepartment else {throw Abort(.notFound)} // 2
+            
+            let pivot = try DepartmentDepartmentPivot(department, foundDepartment) // 3
+            return pivot.save(on: req).transform(to: ()) // 4
+        }
+        
+       
     }
 }
 

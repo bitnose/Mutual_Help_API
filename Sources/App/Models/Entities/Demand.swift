@@ -10,14 +10,19 @@ import Foundation
 import FluentPostgreSQL
 
 
-// Demand Model
-
+/// Demand Model
+/// - id : UUID
+/// - demand : A Name of the Demand
+/// - demandCreatedAt : A timestamp of the moment the demand was created.
+/// - adID : A Parent Ad of the demand
+///  - deletedAt: A property for Fluent to store the date you performed a soft delete on the model
 final class Demand : Codable {
     
     var id : UUID?
     var demand : String
     var demandCreatedAt : Date?
     var adID : Ad.ID
+    var deletedAt: Date?
     
     init(demand : String, adID : Ad.ID) {
         self.demand = demand
@@ -26,6 +31,8 @@ final class Demand : Codable {
     }
     
     static var createdAtKey: TimestampKey? = \.demandCreatedAt
+    // Add to new key path that Fluent checks when you call delete(on:). If the key path exists, Fluent sets the current date on the property and saves the updated model. Otherwise, it deletes the model from the database
+    static var deletedAtKey : TimestampKey? = \.deletedAt
 }
 
 
@@ -74,6 +81,33 @@ extension Demand {
         return demand.save(on: req).transform(to: ())
         
     }
+    
+    
+    /// Update the existing demand or create new one.
+    /// 1. Parameters are array of names of the demands (strings), the ad, and the request.
+    /// 2. Make a database query to get the demands of the ad.
+    /// 3. Delete children by looping the array trough.
+    /// 4. If the name is an empty string continue to iterate the array.
+    /// 5. If the name is not an empty string create new demand by calling another method.
+    
+    static func updateDemands(_ names: [String], to ad: Ad, on req: Request) throws { // 1
+        
+        print("moi")
+        _ = try ad.demands.query(on: req).delete() // 2
+        for name in names { // 3
+            
+            if name.isEmpty { // 4
+                continue
+            } else { // 5
+                _ = try self.addDemand(name, to: ad, on: req)
+            }
+        }
+    }
+    
+    
+    
+    
+    
     
 }
 extension Demand : Migration {}

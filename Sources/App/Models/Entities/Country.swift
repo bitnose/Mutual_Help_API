@@ -10,13 +10,18 @@ import Foundation
 import FluentPostgreSQL
 
 
-// Country Model
+/// Country Model
+/// - id : UUID
+/// - country : A name of the country
+/// - createdAt : A timestamp of the moment whent the model was created
+/// - deletedAt: A property for Fluent to store the date you performed a soft delete on the model
 
 final class Country : Codable {
     
     var id : UUID?
     var country : String
     var createdAt : Date?
+    var deletedAt: Date?
     
     init(country : String) {
         self.country = country
@@ -24,6 +29,8 @@ final class Country : Codable {
     }
     
     static var createdAtKey: TimestampKey? = \.createdAt
+    // Add to new key path that Fluent checks when you call delete(on:). If the key path exists, Fluent sets the current date on the property and saves the updated model. Otherwise, it deletes the model from the database
+    static var deletedAtKey : TimestampKey? = \.deletedAt
     
 }
 

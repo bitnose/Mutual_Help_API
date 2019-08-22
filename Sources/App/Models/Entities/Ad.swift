@@ -10,7 +10,6 @@ import Vapor
 import FluentPostgreSQL
 
 /*
- 
  Class for the Ads conform the Codable
  Properties:
  - ID : UUID ?
@@ -20,9 +19,7 @@ import FluentPostgreSQL
  - updatedAt : Date - Timestamp of the date when the model was updated
  - generosity : Int - The Generosity of the ad; How generous is the ad from 0 - 100 ?
  - images : Array of Strings - Optional array of strings (the links to the image)
- - show : Bool - Boolean value if the model should be shown to the user's or not
- 
- 
+ - deletedAt: A property for Fluent to store the date you performed a soft delete on the model
  */
 
 final class Ad : Codable {
@@ -35,21 +32,23 @@ final class Ad : Codable {
     var contactID : Contact.ID
     var generosity : Int
     var images : [String]?
-    var show : Bool = true
+    var deletedAt: Date?
+    
     // Initialize
-    init(note : String, cityID : City.ID, contactID : Contact.ID, generosity: Int, images: [String]? = nil, show: Bool = true) {
+    init(note : String, cityID : City.ID, contactID : Contact.ID, generosity: Int, images: [String]? = nil) {
         
         self.note = note
         self.cityID = cityID
         self.contactID = contactID
         self.generosity = generosity
         self.images = images
-        self.show = show
     }
     
     // Fluent will automatically manage these records
     static var createdAtKey: TimestampKey? = \.adCreatedAt
     static var updatedAtKey : TimestampKey? = \.updatedAt
+    // Add to new key path that Fluent checks when you call delete(on:). If the key path exists, Fluent sets the current date on the property and saves the updated model. Otherwise, it deletes the model from the database
+    static var deletedAtKey : TimestampKey? = \.deletedAt
     
     
 

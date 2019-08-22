@@ -44,7 +44,7 @@ struct DepartmentController : RouteCollection {
         departmentRoutes.get(Department.parameter, use: getHandler) // 3
         departmentRoutes.get("sorted", use: sortedHandler) // 4
         departmentRoutes.get(Department.parameter, "cities", use: getCitiesHandler) // 5
-        adminGroup.post(Department.parameter, "perimeter", Department.parameter, use: addDepartmentsHandler) // 6
+        adminGroup.post("perimeter", Department.parameter, use: addDepartmentsHandler) // 6
         departmentRoutes.get(Department.parameter, "perimeter", use: getDepartmentsOfPerimeter) // 7
     
  
@@ -109,22 +109,26 @@ struct DepartmentController : RouteCollection {
             try department.cities.query(on: req).all() // 3
         }
     }
-        
     
-    /*
-     Set up the relationship between departments:
-     1. Define a new route handler addDepartmentsHandler(_:), that returns a Future<HTTPStatus>.
-     2. Use flatMap(to:_:_:) to extract both departments from the request's parameters.
-     3. Same-Model consequence is that you will not be able to use the attach convenience method to add to the pivot table so you need to manually create one.
-     4. Transform the result into a 201 Created response.
-     */
-    func addDepartmentsHandler(_ req: Request) throws -> Future<HTTPStatus> { // 1
+    /// Set up the relationship between departments:
+    /// 1. Define a new route handler addDepartmentsHandler(_:), that returns a Future<HTTPStatus>.
+    /// 2. Use map(to:_:_:) to extract a department from the request's parameter, decode the content of the request to be an array of UUIDs.
+    /// 3. Iterate the array of IDs trough one by one.
+    /// 4. In the do-catch-block call the another method to create a pivot model between two departments (add a sibling relationship between the models).
+    /// 5. If errors occur catch them and print out.
+    /// 6. Transform the future to a 201 Created response.
+    func addDepartmentsHandler(_ req: Request) throws -> Future<Response> { // 1
         // 2
-        return try flatMap(to: HTTPStatus.self, req.parameters.next(Department.self), req.parameters.next(Department.self)) { department, neighbour in
-            
-            let pivot = try DepartmentDepartmentPivot(department, neighbour) // 3
-            return pivot.save(on: req).transform(to: .created) // 4
-            
+        return try map(to: Response.self, req.parameters.next(Department.self), req.content.decode([UUID].self)) { department, departmentIDs in
+            // 3
+            for id in departmentIDs {
+                do { // 4
+               _ = try Department.addPivot(neighbourID: id, to: department, on: req)
+                } catch let error { // 5
+                    print(error)
+                }
+            }
+            return req.response(http: HTTPResponse(status: .created)) // 6
         }
     }
     
