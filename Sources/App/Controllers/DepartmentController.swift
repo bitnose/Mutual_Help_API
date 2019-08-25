@@ -47,7 +47,6 @@ struct DepartmentController : RouteCollection {
         adminGroup.post("perimeter", Department.parameter, use: addDepartmentsHandler) // 6
         departmentRoutes.get(Department.parameter, "perimeter", use: getDepartmentsOfPerimeter) // 7
     
- 
     }
     
     // MARK: - HANDLERS

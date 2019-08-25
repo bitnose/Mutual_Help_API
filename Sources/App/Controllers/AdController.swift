@@ -258,8 +258,10 @@ struct AdController : RouteCollection {
 
         return try req.parameters.next(Department.self).flatMap(to: AdsOfPerimeterData.self) { department in // 2.
 
-            return try department.departmentInsideOfPerimeters.query(on: req).all().flatMap(to: AdsOfPerimeterData.self) { perimeter in // 3.
+            return try department.departmentsInsideOfPerimeter.query(on: req).all().flatMap(to: AdsOfPerimeterData.self) { perimeter in // 3.
 
+                print(perimeter.count)
+                
                 var departments = perimeter // 4.
                 departments.insert(department, at: 0) // 5.
                 let cities = try departments.map{try $0.cities.query(on: req).all()} // 6.

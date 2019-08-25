@@ -32,10 +32,12 @@ final class AwsController: RouteCollection {
         let guardAuthMiddleware = User.guardAuthMiddleware() // 2
         let adminGroup = group.grouped(tokenAuthMiddleware, guardAuthMiddleware, AdminMiddleware()) // 3
       
-        /// 1. POST Request : Protected route to post image data to AWS S3 Bucket.
-        /// 2. GET Request : Unprotected route to get images of the selected ad.
+        // 1. Post Request : POST FILE TO S3 BUCKET
+        // 2. Get Request : GET FILE URLS OF THE SELECTED AD
+        // 3. Get Request : GET URLS TO DELETE FILE FROM S3 BUCKET
         adminGroup.post(ImageData.self, at: "image", use: postImageHandler) // 1
         group.get(Ad.parameter, "images", use: getImageUrlsHandler) // 2
+        adminGroup.get(Ad.parameter, "images", "delete", String.parameter, use: deleteFileHandler) // 3
     }
     
     // MARK: - AWS Route Handlers
@@ -82,10 +84,10 @@ final class AwsController: RouteCollection {
         }
     }
     
-    /// A Method to get the url to display the image file what is stored in Amazon Web Service S3 -bucket.
-    /// 1. Function takes in a request and returns an array of future strings.
+    /// A Method to get the url to display the image file that is stored in the Amazon Web Service S3 -bucket.
+    /// 1. Function takes in a request and returns an array of future LinkData.
     /// 2. Making a s3 signer.
-    /// 3. An empty array of urls what is created to store the image urls.
+    /// 3. An empty array of LinkData what is created to store the LinkData.
     /// 4. Extract the ad from the request's parameters and unwrap the result.
     /// 5. In Compeltion Hnadler: Get the images of the ad (array of stings which are names of the images). Unwrap the result.
     /// 6. Loop filenames.
@@ -96,14 +98,16 @@ final class AwsController: RouteCollection {
     /// 11. Append a path component (file) to the url.
     /// 12. Create a pre-signed URL by passing the parameters to the method. for: - GET request, url: is the url we created, expiration: The pre-signed url expires in one hour of the creation.
     /// 13. Return the absolute string for the URL and unwrap the optional.
-    /// 14. Add the absolute string to the url -array.
-    /// 15. Return the array of future stings (= urls).
+    /// 14. Create a LinkData object and add it to the data -array.
+    /// 15. Return the array of LinkData.
 
-    func getImageUrlsHandler(_ req: Request) throws -> Future<[String]> { // 1
+    func getImageUrlsHandler(_ req: Request) throws -> Future<[LinkData]> { // 1
         
         let s3 = try req.makeS3Signer() // 2
-        var urls = [String]() // 3
-        return try req.parameters.next(Ad.self).map(to: [String].self) { ad in // 4
+        
+        var data = [LinkData]() // 3
+        
+        return try req.parameters.next(Ad.self).map(to: [LinkData].self) { ad in // 4
             
             guard let filenames = ad.images else {throw Abort(.internalServerError)} // 5
             
@@ -125,21 +129,63 @@ final class AwsController: RouteCollection {
                 guard let presignedUrl = result?.absoluteString else {
                     throw Abort(.internalServerError)
                 }
-                urls.append(presignedUrl) // 14
+               // 14
+                let linkdata = LinkData(imageLink: presignedUrl, imageName: file)
+                data.append(linkdata)
+                
             }
-            return urls // 15
+            return data // 15
+        }
+    }
+    
+    /// Route Handler to delete image from the aws bucket
+    /// 1. Route handler returns Future<Response>.
+    /// 2. Extract an id of the ad from the request's parameters.
+    /// 3. Extract a name of the file from the request's paramers.
+    /// 4. Make a presigned url to delete ad by calling a method which takes the request and the imageName as parameters.
+    /// 5. Make a client.
+    /// 6. Call another  method to update the ad model (remove the image name of from the ad's images array). Parameters are an imageName, a request and a future<Ad>.
+    /// 7. Make a delete request using the presignedURL.
+    /// 8. Before sending the request add the http headers.
+    /// 9. Map a future to a Future<Response>.
+    /// 10. Look it the response http status code is 204.
+    /// 11. If yes it means that the file is deleted successfully. Print the status code and a message.
+    /// 12. If the status code is not 204 ie if it's something else.
+    /// 13. Print a message and the http status code. In this case the deletion wasn't successfull.
+    /// 14. Return a response.
+    func deleteFileHandler(_ req: Request) throws -> Future<Response> { // 1
+     
+        let ad = try req.parameters.next(Ad.self) // 2
+        let name = try req.parameters.next(String.self) // 3
+        let presignedURL = try self.preparePresignedDeleteUrl(request: req, imageName: name) // 4
+        let client = try req.make(Client.self) // 5
+    
+        _ = try Ad.removeImage(name: name, to: ad, req: req) // 6
+        
+        return client.delete(presignedURL, beforeSend: { requestAWS in // 7
+            
+            requestAWS.http.headers.add(name: "x-amz-acl", value: "public-read") // 8
+            
+        }).map(to: Response.self) { res in // 9
+            if res.http.status.code == 204 { // 10
+                print("Item deleted", res.http.status.code) // 11
+                
+            } else { // 12
+                print("Error with deleting image", res.http.status.code) // 13
+            }
+            return res // 14
         }
     }
 }
 
 
-// MARK: - Extension with preparePresignedUrl method
+// MARK: - This extension consists of Methods to Prepare urls
 /// Private extension for AwsController for Aws Handlers (Amazon Web Servcies)
 private extension AwsController {
     
     /// Method to prepare presigned URL to put an image to the AWS S3 Bucket
     /// 1. Prepares presigned URL, user should send PUT request with image to this URL
-    /// 2. Make a baseUtrl constant to store an awsConfig's url -property.
+    /// 2. Make a baseUrl constant to store an awsConfig's url -property.
     /// 3. Make a imagePath constant to store the awsConfig's imagePaht -property.
     /// 4. Make a newFilename by creating a random UUID string + ".ping"
     /// 5. Create an url from the baseURL.
@@ -148,7 +194,7 @@ private extension AwsController {
     /// 8. Create a headers for the PUT request.
     /// 9. Make a S3 signer to create a presignet url
     /// 10. Try to create a a presigned url (Url is for PUT -request. Url is created url. The url expires after one hour. Pass the headers in.)
-    /// 11. Make an url from the result string.
+    /// 11. Make an absolute string from the result string.
     /// 12. In the do catch -block try to ad the newFilename to the ad by calling an adImage -method.
     /// 13. If errors occur, catch them and print out.
     /// 14. Return the presignedUrl.
@@ -161,7 +207,6 @@ private extension AwsController {
         guard var url = URL(string: baseUrl) else { // 5
             throw Abort(.internalServerError)
         }
-        
         url.appendPathComponent(imagePath) // 6
         url.appendPathComponent(newFilename) // 7
         let headers = ["x-amz-acl": "public-read"] // 8
@@ -173,7 +218,7 @@ private extension AwsController {
             throw Abort(.internalServerError)
         }
         do { // 12
-            _ = try self.adImage(newFilename, to: ad, on: request)
+            _ = try Ad.adImage(name: newFilename, to: ad, req: request)
         } catch let error { // 13
             print("Errors catched: The Error occured when saving filenames.", error)
             throw Abort(.internalServerError)
@@ -181,39 +226,55 @@ private extension AwsController {
         return presignedUrl // 14
     }
     
-    /// Private Method to save image names to the ad.
-    /// 1. Helper method takes a string parameter(a name of the file), uuid(an id of the ad) and the request in as parameters. Returns Void.
-    /// 2. Make a database query to the Ad table: Filter results with the ad id and get the first result. After completion handler flatMap the response to Future<Void>.
-    /// 3. If foundAd equals exisitngAd ie. look if the ad with the required id was found. (unwrap foundAd)
-    /// 4. If the ad doesn't have images.
-    /// 5. Ad an array of string(name) to be images.
-    /// 6. Save the updated ad and transform to the void.
-    /// 7. If the ad has already images.
-    /// 8. Append the new name to the images.
-    /// 9. Save the updated ad and transform to the void.
-    private func adImage(_ name: String, to id: UUID, on req: Request) throws -> Future<Void> { // 1
+    
+    /// Method to prepare url to delete a file
+    /// 1. Parameters: Request & String (a name of the image) and return a string
+    /// 2. Make a baseUrl constant to store an awsConfig's url -property.
+    /// 3. Make a imagePath constant to store the awsConfig's imagePaht -property.
+    /// 4. Create an url from the baseURL.
+    /// 5. Append a path component (image path) to the url.
+    /// 6. Append a path component (a name of the selected image) to the url.
+    /// 7. Create a headers for the request.
+    /// 8. Make a S3 signer to create a presignet url
+    /// 9. Create a presigned url for later use. This url is for deleting a file from the bucket and the url expires after one hour.
+    /// 10. Make an absolute string from the result string.
+    func preparePresignedDeleteUrl(request: Request, imageName: String) throws -> String { // 1
+        
+        let baseUrl = awsConfig.url // 2
+        let imagePath = awsConfig.imagePath // 3
 
-        return Ad.query(on: req).filter(\Ad.id == id).first().flatMap(to: Void.self) { foundAd in // 2
-            
-            guard let existingAd = foundAd else {throw Abort(.internalServerError)} // 3
-     
-            if existingAd.images == nil { // 4
-                existingAd.images = [name] // 5
-                return existingAd.save(on: req).transform(to: ()) // 6
-            } else { // 7
-                existingAd.images!.append(name) // 8
-                return existingAd.save(on: req).transform(to: ()) // 9
-            }
+        guard var url = URL(string: baseUrl) else { // 4
+            throw Abort(.internalServerError)
         }
+        url.appendPathComponent(imagePath) // 5
+        url.appendPathComponent(imageName) // 6
+        let headers = ["x-amz-acl": "public-read"] // 7
+        
+        let s3 = try request.makeS3Signer() // 8
+        let result = try s3.presignedURL(for: .DELETE, url: url, expiration: Expiration.hour, headers: headers) // 9
+        
+        guard let presignedUrl = result?.absoluteString else { // 10
+            throw Abort(.internalServerError)
+        }
+        return presignedUrl // 11
     }
 }
 
+// MARK: - New Data Tyeps
 
-/// ImageData is new data type which contains:
+/// ImageData
 /// - image : Data
 /// - adID : Optional Ad ID
 struct ImageData : Content {
     let image : Data
     let adID : UUID?
+}
+
+/// Link Data
+/// - imageLink : Generated link to the image
+/// - imageName : A name of the image
+struct LinkData : Content {
+    let imageLink : String
+    let imageName : String
 }
 

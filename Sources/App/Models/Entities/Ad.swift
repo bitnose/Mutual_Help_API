@@ -107,6 +107,53 @@ extension Ad {
     }
     
     
+    // MARK: - Static functions
+    
+    /// Helper Method to remove an image from the ad.
+    /// 1. Parameters: a name of the image, a future ad model, request. Returns a Future<Void>
+    /// 2. Return Future<Void> after executing a closure.
+    /// 3. Ensure that the images is not nul.
+    /// 4. Get a index of the element and remove the element in that index.
+    /// 5. Update the ad.images be equal to the updated array.
+    /// 6. Return and save the ad and transform it to be void.
+    static func removeImage(name : String, to ad: Future<Ad>, req: Request) throws -> Future<Void> { // 1
+        
+        return ad.flatMap(to: Void.self) { ad in // 2
+            guard var images = ad.images else {print("Ad doesn't have any images."); throw Abort(.notFound)} // 3
+  
+            _ = images.index(of: name).map {images.remove(at: $0)} // 4
+            ad.images = images // 5
+            return ad.save(on: req).transform(to: ()) // 6
+        }
+    }
+    
+    
+    
+    /// Private Method to save image names to the ad.
+    /// 1. Helper method takes a string parameter(a name of the file), uuid(an id of the ad) and the request in as parameters. Returns Void.
+    /// 2. Make a database query to the Ad table: Filter results with the ad id and get the first result. After completion handler flatMap the response to Future<Void>.
+    /// 3. If foundAd equals exisitngAd ie. look if the ad with the required id was found. (unwrap foundAd)
+    /// 4. If the ad doesn't have images.
+    /// 5. Ad an array of string(name) to be images.
+    /// 6. Save the updated ad and transform to the void.
+    /// 7. If the ad has already images.
+    /// 8. Append the new name to the images.
+    /// 9. Save the updated ad and transform to the void.
+    static func adImage(name: String, to id: UUID, req: Request) throws -> Future<Void> { // 1
+        
+        return Ad.query(on: req).filter(\Ad.id == id).first().flatMap(to: Void.self) { foundAd in // 2
+            
+            guard let existingAd = foundAd else {throw Abort(.internalServerError)} // 3
+            
+            if existingAd.images == nil { // 4
+                existingAd.images = [name] // 5
+                return existingAd.save(on: req).transform(to: ()) // 6
+            } else { // 7
+                existingAd.images!.append(name) // 8
+                return existingAd.save(on: req).transform(to: ()) // 9
+            }
+        }
+    }
     
     
 }

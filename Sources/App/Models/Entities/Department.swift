@@ -108,6 +108,7 @@ extension Department {
         return Department.query(on: req).filter(\Department.id == neighbourID).first().flatMap(to: Void.self) { existingDepartment in // 1
             guard let foundDepartment = existingDepartment else {throw Abort(.notFound)} // 2
             
+            
             let pivot = try DepartmentDepartmentPivot(department, foundDepartment) // 3
             return pivot.save(on: req).transform(to: ()) // 4
         }
