@@ -21,6 +21,8 @@ import Authentication
 /// - password : a password of the user 
 /// - usertype : Admin / Standard / Restricted
 /// - deletedAt: A property for Fluent to store the date you performed a soft delete on the model
+
+// TODO: - Add username variable and phonenumber variable (optionals)
 final class User : Codable {
     
     var id : UUID?
@@ -30,6 +32,7 @@ final class User : Codable {
     var password : String
     var userType : UserType
     var deletedAt: Date?
+    
     
 /// Init User
     init(firstname: String, lastname: String, email: String, password : String, userType: UserType) {
@@ -54,12 +57,14 @@ final class User : Codable {
         var firstname: String
         var lastname: String
         var email : String
+        var userType : UserType
         
-        init(id: UUID?, firstname: String, lastname: String, email : String) {
+        init(id: UUID?, firstname: String, lastname: String, email : String, userType : UserType) {
             self.id = id
             self.firstname = firstname
             self.lastname = lastname
             self.email = email
+            self.userType = userType
         }
     }
 }
@@ -69,6 +74,61 @@ final class User : Codable {
 extension User: PostgreSQLUUIDModel {} // Conform the Fluent's Model
 extension User : Content {} // Conform Content
 extension User : Parameter {} // Conform Parameter
+
+
+
+extension User {
+    
+    // Children 
+    var adsOfUser : Children<User, Ad> { // 1
+        return children(\.userID) // 2
+    }
+    var hearts : Children<User, Heart> { // 1
+         return children(\.userID) // 2
+     }
+    
+    // Siblings
+    
+    /// Computed property to return user models (friends): Relationships which the user initiated.
+    var myFriends : Siblings<User, User, UserUserPivot> { // 3
+        return siblings(UserUserPivot.leftIDKey, UserUserPivot.rightIDKey) // 4
+    }
+    /// Computed property to return user models where the selected user is friend: Relationships which the other user initiated.
+    var friendOf : Siblings<User, User, UserUserPivot
+        > { // 3
+        return siblings(UserUserPivot.rightIDKey, UserUserPivot.leftIDKey) // 4
+    }
+    
+    
+    /** # This method soft deletes child models of the user  and sibling models of the user what is going to be deleted. Call this method before deleting the user.
+     - Parameters:
+        - on req: request
+        - user: the user what will be removed
+     - Throws: AbortError
+     - Returns: Future Void (nothing)
+     
+    1. Query tokens of the user and delete them. Catch errors and print a message.
+    2. Query pivots of the user and delete them. Catch errors and print a message.
+    3. Return and Query the pivots of the user and delete them, transform to void. Catch errors and print a message.
+ */
+       func willSoftDelete(on req: Request, user: User) throws -> Future<Void> { // 1
+       
+        _ = try user.authTokens.query(on: req).delete().catch({ error in
+             print(error, "Can't delete the tokens")
+        })
+        
+        _ = user.friendOf.detachAll(on: req).catch({ error in
+             print(error, "Can't detach the user from the relationship")
+        })
+        
+        return user.myFriends.detachAll(on: req).catch({ error in
+                    print(error, "Can't detach the user from the relationship")
+            }).transform(to: ())
+            
+       }
+                   
+    
+}
 
 /*
  Conform Migration
@@ -88,6 +148,7 @@ extension User: Migration {
     }
 }
 
+
 extension User.Public: Content {} // Conforms User.Public to Content, allowing you ro return the public view in responses.
 
 /*
@@ -97,7 +158,7 @@ extension User.Public: Content {} // Conforms User.Public to Content, allowing y
 
 extension User {
     func convertToPublic() -> User.Public { // 1
-        return User.Public(id: id, firstname: firstname, lastname: lastname, email: email) // 1
+        return User.Public(id: id, firstname: firstname, lastname: lastname, email: email, userType: userType) // 1
     }
 }
 
@@ -164,32 +225,6 @@ struct AdminUser: Migration {
         let user = User(firstname: "Admin",
                         lastname: "Admin",
                         email: "admin@admin.admin",
-                        password: hashedPassword,
-                        userType: .admin)
-        // 6
-        return user.save(on: connection).transform(to: ())
-    }
-    // 7
-    static func revert(on connection: PostgreSQLConnection) -> Future<Void> {
-        return .done(on: connection)
-    }
-}
-
-// 1
-struct AdminUserToo: Migration {
-    // 2
-    typealias Database = PostgreSQLDatabase
-    // 3
-    static func prepare(on connection: PostgreSQLConnection) -> Future<Void> {
-        // 4
-        let password = try? BCrypt.hash("password")
-        guard let hashedPassword = password else {
-            fatalError("Failed to create admin user")
-        }
-        // 5
-        let user = User(firstname: "Admin",
-                        lastname: "Admin",
-                        email: "admin@admin.fi",
                         password: hashedPassword,
                         userType: .admin)
         // 6

@@ -94,6 +94,7 @@ extension Department {
             // 2
             guard let existingDepartment = foundDepartment else {throw Abort(.internalServerError)}
             let pivot = try DepartmentDepartmentPivot(department, existingDepartment) // 3
+            
             return pivot.save(on: req).transform(to: ()) // 4
         }
     }

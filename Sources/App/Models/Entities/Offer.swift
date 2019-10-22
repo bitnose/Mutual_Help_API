@@ -43,7 +43,6 @@ extension Offer : Content {}
 extension Offer : Parameter {}
 
 /*
- 
  Extension to Get the Relationships (Children and Siblings)
  
  1. Add a computed property to Model to get an object's parent. This returns Fluent’s generic Parent type.
@@ -58,14 +57,6 @@ extension Offer {
         return parent(\.adID)// 2
     }
     
-    var trades : Siblings<Offer, Demand, DemandOfferPivot> { // 3
-        return siblings() // 4
-    }
-    
-    var categories : Siblings<Offer, Category, CategoryOfferPivot> { // 3
-        return siblings() // 4
-    }
-    
     /// Static function to create an offer
     /// 1. Create a new offer with the provided offer and ad id.
     /// 2. Save the new offer and transform the result to Void.
@@ -73,29 +64,23 @@ extension Offer {
         let offer = Offer(offer: offer, adID: try ad.requireID()) // 1
         return offer.save(on: req).transform(to: ()) // 2
     }
+}
+
+/*
+ Setting up the Foreign Key Constraints
+ 1. Conform the Model to Migration
+ 2. Implement prepare(on:) as required by Migration. This overrides the default implementation.
+ 3. Create the table for Ad in the database
+ 4. Use addProperties(to:) to add all the fields to the database. This means you don't need to add each column manually.
+ 5. Add a reference between the adID property on Ad and the id property on Ad. This sets up the foreign key constraint between the two tables
+ */
+
+extension Offer : Migration { // 1
     
-    /// Update the existing offer or create new one.
-    /// 1. Parameters are array of names of the offers (strings), the ad, and the request.
-    /// 2. Make a database query to get the offers of the ad.
-    /// 3. Delete children by looping the array trough.
-    /// 4. If the name is empty string, continue iterating the array.
-    /// 5. Else create a new offer by calling another static method.
-    static func updateOffers(_ names: [String], to ad: Ad, on req: Request) throws { // 1
-        
-        _ = try ad.offers.query(on: req).delete() // 2
-        for name in names { // 3
-            
-            
-            if name.isEmpty { // 4
-                continue
-            } else { // 5
-                 _ = try self.addOffer(name, to: ad, on: req) //
-            }
+    static func prepare(on connection: PostgreSQLConnection) -> Future<Void> { // 2
+        return Database.create(self, on: connection) { builder in // 3
+            try addProperties(to: builder) // 4
+            builder.reference(from: \.adID, to: \Ad.id) // 5
         }
     }
 }
-
-// Conform the Model to Migration
-extension Offer : Migration {}
-
-

@@ -25,33 +25,102 @@ struct DepartmentController : RouteCollection {
         let tokenAuthMiddleware = User.tokenAuthMiddleware() // 1
         let guardAuthMiddleware = User.guardAuthMiddleware() // 2
         let adminGroup = departmentRoutes.grouped(tokenAuthMiddleware, guardAuthMiddleware, AdminMiddleware()) // 3
+        let standardGroup = departmentRoutes.grouped(tokenAuthMiddleware, guardAuthMiddleware, StandardUserMiddleware())
         
         /*
-         Create a new route path
-         Grouped Route (/api/deparment) +  Request Type (POST, GET, PUT, DELETE) (+ Path component + Method)
+        // Create a new route path
+        // Grouped Route (/api/deparment) +  Request Type (POST, GET, PUT, DELETE) (+ Path component + Method)
          
-         1. Post Request : route with method which creates new ads
-         2. Get Request : Retrieve all Departments
-         3. Get Reguest : Department by their ID (The route takes the Department's id property as the final path segment)
-         4. Get Request : Sorted departments (sorted based on the department_number of the object)
-         5. Get Request : Get children (Ads) of the Object (Department)
-         6. Post Request : /api/departments/<DEPARTMENT_ID>/perimeter/<DEPARTMENT_ID> to adDepartmentsHandler(_:) - Creates a sibling relationship between the department with ID X and the department with ID Y.
-         7. Get Request : /api/departments/<DEPARTMENT_ID>/perimeter to get the departments inside of the Perimeter of the Selected Department
+         
+         9. Put Request : Remove departmnent from the relationship
          */
         
+        // MARK: - STANDARD ACCESS
+        //
+        // 1. Get Request : Retrieve all Departments
+        // 2. Get Reguest : Department by their ID (The route takes the Department's id property as the final path segment)
+        // 3. Get Request : Sorted departments (sorted based on the department_number of the object)
+        standardGroup.get(use: getAllHandler) // 1
+        standardGroup.get(Department.parameter, use: getHandler) // 2
+        standardGroup.get("sorted", use: sortedHandler) // 3
+        
+        // MARK: - ADMIN ACCESS
+        //
+        // 1. Post Request : route with method which creates new ads
+        // 3. Post Request : /api/departments/<DEPARTMENT_ID>/perimeter/<DEPARTMENT_ID> to adDepartmentsHandler(_:) - Creates a sibling relationship between the department with ID X and the department with ID Y.
+        // 4. Get Request : /api/departments/<DEPARTMENT_ID>/perimeter to get the departments inside of the Perimeter of the Selected Department
+        // 5. Delete Request : Delete department
         adminGroup.post(use: createHandler) // 1
-        departmentRoutes.get(use: getAllHandler) // 2
-        departmentRoutes.get(Department.parameter, use: getHandler) // 3
-        departmentRoutes.get("sorted", use: sortedHandler) // 4
-        departmentRoutes.get(Department.parameter, "cities", use: getCitiesHandler) // 5
-        adminGroup.post("perimeter", Department.parameter, use: addDepartmentsHandler) // 6
-        departmentRoutes.get(Department.parameter, "perimeter", use: getDepartmentsOfPerimeter) // 7
+        adminGroup.post("perimeter", Department.parameter, use: addDepartmentsHandler) // 3
+        adminGroup.get(Department.parameter, "perimeter", use: getDepartmentsOfPerimeter) // 4
+        adminGroup.delete("delete", Department.parameter, use: deleteDepartmentHandler) // 5
+        adminGroup.put("delete", Department.parameter, Department.parameter, use: removeDeparmentFromPerimeterHandler) // 6
     
     }
     
-    // MARK: - HANDLERS
+    /**
+     # Retrieve All Department
+     - parameters:
+        - req: Request
+     - throws: Abort
+     - returns: Future [Department]]
+     1. Only parameter is request itself
+     2. Perform Query to Retrieve All (Fluent ads functions to models to be able to perform queries on them. Provides a thread to perform the work.) Function fetches all Objects from the table and returns an array of Objects
+     */
     
-    /// Create Deparment
+    func getAllHandler(_ req: Request) throws -> Future<[Department]> { // 1
+        return Department.query(on: req).all() // 2
+    }
+  
+    /**
+     # Delete department
+      - parameters:
+        - req: Request
+     - throws: Abort
+     - returns: Future Response
+     
+     1. Return and Extract the deparment from the request's parameter.
+     2. Delete model.
+     3. Transform to response.
+     */
+    
+    func deleteDepartmentHandler(_ req: Request) throws -> Future<Response> {
+        
+        return try req.parameters.next(Department.self) // 1
+            .delete(on: req) // 2
+            .transform(to: Response(http: HTTPResponse(status: .noContent), using: req)) // 3
+        
+    }
+    
+    /**
+     # Remove department from relationship
+      - parameters:
+        - req: Request
+     - throws: Abort
+     - returns: Future Response
+     
+     1. Return and Extract the deparments from the request's parameter.
+     2. Return departmentInsideOfPerimeters of the first departmentl
+     3. Remove the second department from the pivot model between the deparmtents.
+     4. Transform to response.
+     */
+    func removeDeparmentFromPerimeterHandler(_ req: Request) throws -> Future<Response> {
+        
+        return try flatMap(req.parameters.next(Department.self), req.parameters.next(Department.self)) { department, departmentToRemove in // 1
+            return department.departmentsInsideOfPerimeter // 2
+                .detach(departmentToRemove, on: req) // 3
+                .transform(to: Response(http: HTTPResponse(status: .noContent), using: req)) // 4
+        }
+    }
+    
+    
+    /// # Create Deparment
+    ///
+    /// - parameters:
+    ///   - req: Request
+    /// - throws: Abort
+    /// - returns: Future HTTPResponse
+    ///
     /// 1. Function return Future<HTTPResponse>
     /// 2. Decode the request's JSON into an object. This is simple because the Model conforms to Content. Decode returns a Future; use flatMap(to:) to extract the object when decoding completes.
     /// 3. Save the object and transform the response to HTTPResponseStatus: created.
@@ -61,23 +130,16 @@ struct DepartmentController : RouteCollection {
             print(department.countryID, department.departmentName)
             return department.save(on: req).transform(to: HTTPResponse(status: .created)) // 3
         }
+    }
 
-    }
-    
- 
-    
-    /*
-     Retrieve All Department
-     1. Only parameter is request itself
-     2. Perform Query to Retrieve All (Fluent ads functions to models to be able to perform queries on them. Provides a thread to perform the work.) Function fetches all Objects from the table and returns an array of Objects
-     */
-    
-    func getAllHandler(_ req: Request) throws -> Future<[Department]> { // 1
-        return Department.query(on: req).all() // 2
-    }
-    
-    /*
-     Retrieve a Single Deparment
+    /**
+     # Retrieve a Single Deparment
+     
+     - parameters:
+            - req: Request
+     - throws: Abort
+     - returns:Future Department
+     
      1. Get Object based on their ID
      2. Extract the object from the request using parameters. This computed property performs all the work necessary to get the object from the database. It also handles the error cases when the object doesn’t exist or the ID type is wrong (for example, when you pass it an integer when the ID is a UUID).
      */
@@ -85,8 +147,14 @@ struct DepartmentController : RouteCollection {
         return try req.parameters.next(Department.self) // 2
     }
     
-    /*
-     Sort Objects
+    /**
+     # Sort Departments
+     
+     - parameters:
+            - req: Request
+     - throws: Abort
+     - returns: Future Department
+     
      1. Perform Query all
      2. Perform Sort, and sort Retrieved Items in ascending order by their departmentNumber property
      */
@@ -96,20 +164,15 @@ struct DepartmentController : RouteCollection {
             .sort(\.departmentNumber, .ascending).all() // 2
     }
     
-    /*
-     Get Children
-     1. Define a new route handler, getAdsHandler(_:), that returns Future<[Ads]>
-     2. Fetch the Object specified in the request’s parameters and unwrap the returned future.
-     3. Use the computed property to get the children using a Fluent query to return all the ads.
-     */
+   
     
-    func getCitiesHandler(_ req: Request) throws -> Future<[City]> { // 1
-        return try req.parameters.next(Department.self).flatMap(to: [City].self) { department in // 2
-            try department.cities.query(on: req).all() // 3
-        }
-    }
-    
-    /// Set up the relationship between departments:
+    /// # Set up the relationship between departments:
+    ///
+    /// - parameters:
+    ///   - req: Request
+    /// - throws: Abort
+    /// - returns: Future Response
+    ///
     /// 1. Define a new route handler addDepartmentsHandler(_:), that returns a Future<HTTPStatus>.
     /// 2. Use map(to:_:_:) to extract a department from the request's parameter, decode the content of the request to be an array of UUIDs.
     /// 3. Iterate the array of IDs trough one by one.
@@ -131,20 +194,27 @@ struct DepartmentController : RouteCollection {
         }
     }
     
-    /*
-     Get departments of the perimeter of the department:
+    /**
+     # Get departments of the perimeter of the department:
+     - parameters:
+                - req: Request
+     - throws: Abort
+     - returns: Future DepartmentWithPerimeter
+         
      1. Define route handler getDepartmentsInsidePerimeterHandler(_:) returning Future<[Department]>.
      2. Extract the department from the request's parameters and unwrap the returned future.
      3. Use the computed property to get the departments inside the perimeter of the selected Department. Then use a Fluent query to return all the departments.
      */
     
-    func getDepartmentsOfPerimeter(_ req: Request) throws -> Future <[Department]> { // 1
-        
-        return try req.parameters.next(Department.self).flatMap(to: [Department].self) { department in // 2
-            try department.departmentsInsideOfPerimeter.query(on: req).all() // 3
+    func getDepartmentsOfPerimeter(_ req: Request) throws -> Future<DepartmentWithPerimeter> { // 1
+ 
+        return try req.parameters.next(Department.self).flatMap(to: DepartmentWithPerimeter.self) { department in // 2
+            return try department.departmentsInsideOfPerimeter.query(on: req).sort(\Department.departmentNumber, .ascending).all().map(to: DepartmentWithPerimeter.self) { perimeter in // 3
+                return DepartmentWithPerimeter(department: department, perimeter: perimeter)
+            
+            }
         }
     }
     
 }
-
 

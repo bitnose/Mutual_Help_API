@@ -9,7 +9,7 @@ import S3
 import Vapor
 import FluentPostgreSQL
 
-/// Class responsible for handling AWS S3
+/// # Class responsible for handling AWS S3
 final class AwsController: RouteCollection {
     
     // MARK: - Properties
@@ -26,26 +26,35 @@ final class AwsController: RouteCollection {
         /// 1. Create a TokenAuthenticationMiddleware for User. This uses BearerAuthenticationMiddleware to extract the bearer token out of the request. The middleware then convert            s this token into a logged in user.
         /// 2. Create a GuardAuthMiddleware. Error to throw if the type is not authed.
         /// 3. Create an adminGroup for routes which requires that the user has an admin access. (Right now all actions) Create the group using tokenAuthMiddleware and guardAuthMiddleware and also AdminMiddleware() to protect the route for creating a user with token authentication.
+        /// 4. A group whihc requires that the user has an admin access OR standard access, otherwise it throws an abort(.forbidden).
         
         let group = router.grouped(Path.base.rawValue) // aws
         let tokenAuthMiddleware = User.tokenAuthMiddleware() // 1
         let guardAuthMiddleware = User.guardAuthMiddleware() // 2
-        let adminGroup = group.grouped(tokenAuthMiddleware, guardAuthMiddleware, AdminMiddleware()) // 3
+        let tokenAuthGroup = group.grouped(tokenAuthMiddleware, guardAuthMiddleware) // 4
       
         // 1. Post Request : POST FILE TO S3 BUCKET
         // 2. Get Request : GET FILE URLS OF THE SELECTED AD
         // 3. Get Request : GET URLS TO DELETE FILE FROM S3 BUCKET
-        adminGroup.post(ImageData.self, at: "image", use: postImageHandler) // 1
+        tokenAuthGroup.post("image", use: postImageHandler) // 1
         group.get(Ad.parameter, "images", use: getImageUrlsHandler) // 2
-        adminGroup.get(Ad.parameter, "images", "delete", String.parameter, use: deleteFileHandler) // 3
+        tokenAuthGroup.get(Ad.parameter, "images", "delete", String.parameter, use: deleteFileHandler) // r
     }
     
     // MARK: - AWS Route Handlers
     
-    /// Route handler to post an image to the presignedURl (to the AWS S3 Bucket).
+    /// # Route handler to post an image to the presignedURl (to the AWS S3 Bucket).
+    ///
+    /// - parameters:
+    ///    - req: Request
+    /// - returns: Future : Response
+    /// - throws: Abort
+    ///
     /// 1. Method takes a request and ImageData as a parameters.
     /// 2. Decode the content of the request to the ImageData. After completion handler is completed, flatMap the data to Future<Response>.
+    /// 2a) Get the authenticated user.
     /// 3. Unwrap the ad id.
+    /// 3.a) Look if the user has the ad which is the same as the adID from the request. If it doesn't exists throw an abort (.forbidden).
     /// 4. Get the url by calling the preparePresignedUrl -method.
     /// 5. Make a client to make a http request.
     /// 6. Make a put reques to the url and before sending execute the completion handler.
@@ -57,11 +66,15 @@ final class AwsController: RouteCollection {
     /// 12. Otherwise print the status code with a message.
     /// 13. Return the response.
     
-    func postImageHandler(_ req: Request, data: ImageData) throws -> Future<Response> { // 1
+    func postImageHandler(_ req: Request) throws -> Future<Response> { // 1
         
         return try req.content.decode(ImageData.self).flatMap(to: Response.self) { data in // 2
-            
+        
+            let user = try req.requireAuthenticated(User.self) // 2a
+         
             guard let id = data.adID else {throw Abort(.internalServerError)} // 3
+            
+            let _ = try user.adsOfUser.query(on: req).filter(\Ad.id == id).first().unwrap(or: Abort(.forbidden)) // 3a
             
             let url = try self.preparePresignedUrl(request: req, ad: id) // 4
             let client = try req.make(Client.self) // 5
@@ -81,10 +94,18 @@ final class AwsController: RouteCollection {
                 }
                 return res // 13
             }
-        }
+        }.catchMap({ error  in
+            throw Abort(.internalServerError)
+        })
     }
     
-    /// A Method to get the url to display the image file that is stored in the Amazon Web Service S3 -bucket.
+    /// # A Method to get the url to display the image file that is stored in the Amazon Web Service S3 -bucket.
+    ///
+    /// - parameters:
+    ///    - req: Request
+    /// - returns: Future : [LinkData]
+    /// - throws: Abort
+    ///
     /// 1. Function takes in a request and returns an array of future LinkData.
     /// 2. Making a s3 signer.
     /// 3. An empty array of LinkData what is created to store the LinkData.
@@ -135,16 +156,24 @@ final class AwsController: RouteCollection {
                 
             }
             return data // 15
-        }
+        }.catchMap({ error in
+            throw Abort(.internalServerError)
+        })
     }
     
-    /// Route Handler to delete image from the aws bucket
+    /// # Route Handler to delete image from the aws bucket
+    ///
+    /// - parameters:
+    ///    - req: Request
+    ///  - returns: Future : Response
+    /// - throws: Abort
+    ///
     /// 1. Route handler returns Future<Response>.
     /// 2. Extract an id of the ad from the request's parameters.
     /// 3. Extract a name of the file from the request's paramers.
-    /// 4. Make a presigned url to delete ad by calling a method which takes the request and the imageName as parameters.
-    /// 5. Make a client.
-    /// 6. Call another  method to update the ad model (remove the image name of from the ad's images array). Parameters are an imageName, a request and a future<Ad>.
+    /// 4. Call another  method to update the ad model (remove the image name of from the ad's images array). Parameters are an imageName, a request and a future<Ad>.
+    /// 5. Make a presigned url to delete ad by calling a method which takes the request and the imageName as parameters.
+    /// 6. Make a client.
     /// 7. Make a delete request using the presignedURL.
     /// 8. Before sending the request add the http headers.
     /// 9. Map a future to a Future<Response>.
@@ -157,10 +186,15 @@ final class AwsController: RouteCollection {
      
         let ad = try req.parameters.next(Ad.self) // 2
         let name = try req.parameters.next(String.self) // 3
-        let presignedURL = try self.preparePresignedDeleteUrl(request: req, imageName: name) // 4
-        let client = try req.make(Client.self) // 5
+       
     
-        _ = try Ad.removeImage(name: name, to: ad, req: req) // 6
+        _ = try Ad.removeImage(name: name, to: ad, req: req).catchMap({ error in
+            print(error)
+            throw Abort(.forbidden)
+        }) // 4
+        
+        let presignedURL = try self.preparePresignedDeleteUrl(request: req, imageName: name) // 5
+        let client = try req.make(Client.self) // 6
         
         return client.delete(presignedURL, beforeSend: { requestAWS in // 7
             
@@ -176,14 +210,64 @@ final class AwsController: RouteCollection {
             return res // 14
         }
     }
+    
+    
+    /// # Route Handler to delete image from the aws bucket
+    ///
+    /// - parameters:
+    ///    - req: Request
+    ///    - name : String
+    /// - returns: Future : Response
+    /// - throws: Abort
+    ///
+    /// 1. Route handler returns Future<Response>.
+    /// 2. Make a presigned url to delete ad by calling a method which takes the request and the imageName as parameters.
+    /// 3. Make a client.
+    /// 4. Make a delete request using the presignedURL.
+    /// 5. Before sending the request add the http headers.
+    /// 6. Map a future to a Future<Response>.
+    /// 7. Look it the response http status code is 204.
+    /// 8. If yes it means that the file is deleted successfully. Print the status code and a message.
+    /// 9. If the status code is not 204 ie if it's something else.
+    /// 10. Print a message and the http status code. In this case the deletion wasn't successfull.
+    /// 12. Return a response.
+    func deleteFile(_ req: Request, name: String) throws -> Future<Response> { // 1
+        
+        let presignedURL = try self.preparePresignedDeleteUrl(request: req, imageName: name) // 2
+        let client = try req.make(Client.self) // 3
+        
+        return client.delete(presignedURL, beforeSend: { requestAWS in // 4
+            
+            requestAWS.http.headers.add(name: "x-amz-acl", value: "public-read") // 5
+            
+        }).map(to: Response.self) { res in // 6
+            if res.http.status.code == 204 { // 7
+                
+                print("Item deleted", res.http.status.code) // 8
+                
+            } else { // 9
+                print("Error with deleting image", res.http.status.code) // 10
+            }
+            return res // 11
+        }.catchMap { error in
+            throw Abort(.internalServerError)
+        }
+    }
 }
 
 
 // MARK: - This extension consists of Methods to Prepare urls
 /// Private extension for AwsController for Aws Handlers (Amazon Web Servcies)
 private extension AwsController {
-    
-    /// Method to prepare presigned URL to put an image to the AWS S3 Bucket
+
+    /// # Method to prepare presigned URL to put an image to the AWS S3 Bucket
+    ///
+    /// - parameters:
+    ///    - req: Request
+    ///    - ad : UUID
+    /// - returns: String
+    /// - throws: Abort
+    ///
     /// 1. Prepares presigned URL, user should send PUT request with image to this URL
     /// 2. Make a baseUrl constant to store an awsConfig's url -property.
     /// 3. Make a imagePath constant to store the awsConfig's imagePaht -property.
@@ -211,6 +295,7 @@ private extension AwsController {
         url.appendPathComponent(newFilename) // 7
         let headers = ["x-amz-acl": "public-read"] // 8
         
+        
         let s3 = try request.makeS3Signer() // 9
         let result = try s3.presignedURL(for: .PUT, url: url, expiration: Expiration.hour, headers: headers) // 10
       
@@ -227,7 +312,13 @@ private extension AwsController {
     }
     
     
-    /// Method to prepare url to delete a file
+    /// # Method to prepare url to delete a file
+    ///
+    /// - parameters:
+    ///    - req: Request
+    ///    - returns: Future : Response
+    /// - throws: Abort
+    ///
     /// 1. Parameters: Request & String (a name of the image) and return a string
     /// 2. Make a baseUrl constant to store an awsConfig's url -property.
     /// 3. Make a imagePath constant to store the awsConfig's imagePaht -property.
@@ -260,21 +351,4 @@ private extension AwsController {
     }
 }
 
-// MARK: - New Data Tyeps
-
-/// ImageData
-/// - image : Data
-/// - adID : Optional Ad ID
-struct ImageData : Content {
-    let image : Data
-    let adID : UUID?
-}
-
-/// Link Data
-/// - imageLink : Generated link to the image
-/// - imageName : A name of the image
-struct LinkData : Content {
-    let imageLink : String
-    let imageName : String
-}
 

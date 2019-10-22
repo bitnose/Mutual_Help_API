@@ -62,15 +62,6 @@ extension Demand {
         return parent(\.adID)// 2
     }
     
-    // Siblings
-    
-    var trades : Siblings<Demand, Offer, DemandOfferPivot> { // 3
-        return siblings() // 4
-    }
-    
-    var categories : Siblings<Demand, Category, CategoryDemandPivot> { // 3
-        return siblings() // 4
-    }
     /*
      Static function to create a demand
      1. Create a new demand with the provided demand and ad id.
@@ -81,34 +72,33 @@ extension Demand {
         return demand.save(on: req).transform(to: ())
         
     }
-    
-    
-    /// Update the existing demand or create new one.
-    /// 1. Parameters are array of names of the demands (strings), the ad, and the request.
-    /// 2. Make a database query to get the demands of the ad.
-    /// 3. Delete children by looping the array trough.
-    /// 4. If the name is an empty string continue to iterate the array.
-    /// 5. If the name is not an empty string create new demand by calling another method.
-    
-    static func updateDemands(_ names: [String], to ad: Ad, on req: Request) throws { // 1
-        
-        print("moi")
-        _ = try ad.demands.query(on: req).delete() // 2
-        for name in names { // 3
-            
-            if name.isEmpty { // 4
-                continue
-            } else { // 5
-                _ = try self.addDemand(name, to: ad, on: req)
-            }
-        }
-    }
-    
-    
-    
-    
+ 
     
     
 }
-extension Demand : Migration {}
+
+
+/*
+ Setting up the Foreign Key Constraints
+ 1. Conform the Model to Migration
+ 2. Implement prepare(on:) as required by Migration. This overrides the default implementation.
+ 3. Create the table for Ad in the database
+ 4. Use addProperties(to:) to add all the fields to the database. This means you don't need to add each column manually.
+ 5. Add a reference between the adID property on Ad and the id property on Ad. This sets up the foreign key constraint between the two tables
+ */
+
+extension Demand : Migration { // 1
+    
+    static func prepare(on connection: PostgreSQLConnection) -> Future<Void> { // 2
+        return Database.create(self, on: connection) { builder in // 3
+            try addProperties(to: builder) // 4
+            builder.reference(from: \.adID, to: \Ad.id) // 5
+        }
+    }
+}
+
+
+    
+    
+
 

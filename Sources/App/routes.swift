@@ -12,7 +12,7 @@ public func routes(_ router: Router, awsConfig: AwsConfig) throws {
      2. Register the new type with the router to ensure the controller's router get registered
      */
     
-    let adController = AdController()  // 1
+    let adController = AdController(awsConfig: awsConfig)  // 1
     try router.register(collection: adController) //2
     
     let departmentConroller = DepartmentController() // 1
@@ -24,19 +24,13 @@ public func routes(_ router: Router, awsConfig: AwsConfig) throws {
     let cityController = CityController() // 1
     try router.register(collection: cityController) // 2
     
-    let contactController = ContactController() // 1
-    try router.register(collection: contactController) // 2
-    
-    let heartController = HeartController() // 1
-    try router.register(collection: heartController) // 2
-    
     let demandController = DemandController() // 1
     try router.register(collection: demandController) // 2
     
     let offerController = OfferController() // 1
     try router.register(collection: offerController) // 2
     
-    let userController = UserController() // 1
+    let userController = UserController(awsConfig: awsConfig) // 1
     try router.register(collection: userController) // 2
     
     let awsController = AwsController(awsConfig: awsConfig)

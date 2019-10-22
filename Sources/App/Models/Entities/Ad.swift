@@ -9,8 +9,8 @@ import Foundation
 import Vapor
 import FluentPostgreSQL
 
-/*
- Class for the Ads conform the Codable
+/**
+ # Class for the Ads : conforms Codable
  Properties:
  - ID : UUID ?
  - note : String - User's input about the note
@@ -29,19 +29,17 @@ final class Ad : Codable {
     var cityID : City.ID
     var adCreatedAt : Date?
     var updatedAt : Date?
-    var contactID : Contact.ID
-    var generosity : Int
     var images : [String]?
     var deletedAt: Date?
-    
+    var userID : User.ID
+
     // Initialize
-    init(note : String, cityID : City.ID, contactID : Contact.ID, generosity: Int, images: [String]? = nil) {
+    init(note : String, cityID : City.ID, images: [String]? = nil, userID : User.ID) {
         
         self.note = note
         self.cityID = cityID
-        self.contactID = contactID
-        self.generosity = generosity
         self.images = images
+        self.userID = userID
     }
     
     // Fluent will automatically manage these records
@@ -50,17 +48,36 @@ final class Ad : Codable {
     // Add to new key path that Fluent checks when you call delete(on:). If the key path exists, Fluent sets the current date on the property and saves the updated model. Otherwise, it deletes the model from the database
     static var deletedAtKey : TimestampKey? = \.deletedAt
     
+    /// # WillSoftDelete
+    /// - parameters:
+    ///     - req: Request
+    ///     - ad : Ad to delete
+    /// - throws: Abort error
+    /// - returns: Future Void
+    /// 1. This method soft deletes children of the ad what is going to be deleted. Call this method before deleting the ad. Function throws.
+    /// 2. Query the demands of the ad and delete them. Catch errors and print a message and throw abort.
+    /// 3. Query the offers of the ad and delete them. Catch errors and print a message and throw abort.
+    /// 4. Return and Query the hearts of the ad and delete them, transform to void. Catch errors and print a message and throw abort.
+    func willSoftDelete(on req: Request, ad: Ad) throws -> Future<Void> { // 1
     
-
-
-    
-   
-    
-    
-    
+        _ = try ad.demands.query(on: req).delete().catchMap({ error in
+            print(error, "Can't delete the demands")
+             throw Abort.init(.internalServerError)
+        }) // 2
+        _ = try ad.offers.query(on: req).delete().catchMap({ error in
+             print(error, "Can't delete the offers.")
+            throw Abort.init(.internalServerError)
+        }) // 3
+        
+        // 4
+        return try ad.hearts.query(on: req).delete().catchMap({ error in
+             print(error, "Can't delete the hearts")
+            
+        }).transform(to: ())
+    }
 }
 
-/// MARK: - Extensions
+// MARK: - Extensions
 
 // Conform the Fluent's Model
 extension Ad: PostgreSQLUUIDModel {}
@@ -69,7 +86,7 @@ extension Ad : Content {}
 extension Ad : Parameter {}
 
 
-/// MARK: - Relationships
+// MARK: - Relationships
 /*
  Set Up the Parent-Child Relationship
  1. Add computed property to Ad to get the city object of the ad's owner. This returns Fluent's generic parent type.
@@ -98,27 +115,44 @@ extension Ad {
     
     // Parent
     
-    var contact : Parent<Ad, Contact> {// 5
-        return parent(\.contactID) // 6
-    }
-    
     var city : Parent<Ad, City> { // 5
         return parent(\.cityID) // 6
+    }
+    
+    var user : Parent<Ad, User> { // 5
+        return parent(\.userID) // 6
     }
     
     
     // MARK: - Static functions
     
-    /// Helper Method to remove an image from the ad.
+    /// # Helper Method to remove an image from the ad.
+    ///
+    /// - parameters:
+    ///     - name : String
+    ///     - to ad: Future Ad
+    ///     - req: Request
+    /// - throws: Abort
+    /// - returns: Future Void
+    ///
     /// 1. Parameters: a name of the image, a future ad model, request. Returns a Future<Void>
     /// 2. Return Future<Void> after executing a closure.
+    /// 2.a) Unwrap the id of the ad.
+    /// 2.b) Look if the user has the ad which is the same as the adID from the request. If it doesn't exists throw an abort (.forbidden).
     /// 3. Ensure that the images is not nul.
     /// 4. Get a index of the element and remove the element in that index.
     /// 5. Update the ad.images be equal to the updated array.
     /// 6. Return and save the ad and transform it to be void.
     static func removeImage(name : String, to ad: Future<Ad>, req: Request) throws -> Future<Void> { // 1
         
+        let user = try req.requireAuthenticated(User.self)
+        
         return ad.flatMap(to: Void.self) { ad in // 2
+            
+            let id = try ad.requireID() // 2a
+            
+            _ = try user.adsOfUser.query(on: req).filter(\Ad.id == id).first().unwrap(or: Abort(.forbidden)) // 2b
+            
             guard var images = ad.images else {print("Ad doesn't have any images."); throw Abort(.notFound)} // 3
   
             _ = images.index(of: name).map {images.remove(at: $0)} // 4
@@ -127,9 +161,15 @@ extension Ad {
         }
     }
     
-    
-    
-    /// Private Method to save image names to the ad.
+    /// # Private Method to save image names to the ad.
+    ///
+    /// - parameters:
+    ///     - name : String
+    ///     - to id: UUID
+    ///     - req: Request
+    /// - throws: Abort
+    /// - returns: Future Void
+    ///
     /// 1. Helper method takes a string parameter(a name of the file), uuid(an id of the ad) and the request in as parameters. Returns Void.
     /// 2. Make a database query to the Ad table: Filter results with the ad id and get the first result. After completion handler flatMap the response to Future<Void>.
     /// 3. If foundAd equals exisitngAd ie. look if the ad with the required id was found. (unwrap foundAd)
@@ -158,7 +198,7 @@ extension Ad {
     
 }
 
-/// MARK: - Migration
+// MARK: - Migrations
 
 /*
  Setting up the Foreign Key Constraints
@@ -167,7 +207,6 @@ extension Ad {
  3. Create the table for Ad in the database
  4. Use addProperties(to:) to add all the fields to the database. This means you don't need to add each column manually.
  5. Add a reference between the cityID property on Ad and the id property on City. This sets up the foreign key constraint between the two tables
- 6. Add a reference between the contactID property on Ad and the id property on Contact. This sets up the foreign key constraint between the two tables
  */
 
 extension Ad : Migration { // 1
@@ -176,9 +215,7 @@ extension Ad : Migration { // 1
         return Database.create(self, on: connection) { builder in // 3
             try addProperties(to: builder) // 4
             builder.reference(from: \.cityID, to: \City.id) // 5
-            builder.reference(from: \.contactID, to: \Contact.id)
-            
-            
+            builder.reference(from: \.userID, to: \User.id)
         }
     }
 }

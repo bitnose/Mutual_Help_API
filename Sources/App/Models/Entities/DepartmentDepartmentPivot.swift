@@ -17,8 +17,7 @@ import Foundation
  4. Define Left and Right types required by Pivot. This tells Fluent what the two models in the relationship are.
  5. Tell Fluent the key path of the two ID properties for each side of the relationship.
  6. Implement the throwing initializer, as required by ModifiablePivot.
- 7. Conform to Migration so Fluent can set up the table.
- 8. Confrom to ModifiablePivot. This allows you to use the syntactic sugar Vapor provides for adding and removing the relationships.
+ 7. Confrom to ModifiablePivot. This allows you to use the syntactic sugar Vapor provides for adding and removing the relationships.
  
  
  */
@@ -46,7 +45,7 @@ final class DepartmentDepartmentPivot: PostgreSQLUUIDPivot {
     }
 }
 
-extension DepartmentDepartmentPivot: ModifiablePivot {} // 9
+extension DepartmentDepartmentPivot: ModifiablePivot {} // 7
 
 /*
  Foreign Key Constraints

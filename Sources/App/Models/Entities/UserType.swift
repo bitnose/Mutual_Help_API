@@ -7,7 +7,7 @@
 
 import Foundation
 import FluentPostgreSQL
-
+import Vapor
 
 /// A new enum string type to the user to define basic user access levels (predefined sets).
 /// FluentPostgreSQL to expose the required types for the enum.
@@ -17,8 +17,10 @@ import FluentPostgreSQL
 /// - standard : Basic Access (Registered Users)
 /// - restricted : Limited Access (Unregistered Users)
 
-enum UserType: String, PostgreSQLEnum, PostgreSQLMigration {
+enum UserType: String, PostgreSQLEnum, PostgreSQLMigration, Content {
     case admin
     case standard
     case restricted
 }
+
+

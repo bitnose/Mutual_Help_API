@@ -30,9 +30,10 @@ public func configure(_ config: inout Config, _ env: inout Environment, _ servic
      4. Register the middlewares
      */
     var middlewares = MiddlewareConfig() // 1
+    
     middlewares.use(ErrorMiddleware.self) // 2
     middlewares.use(FileMiddleware.self) // Serves files from `Public/` directory
-    middlewares.use(SessionsMiddleware.self) // 2
+ //   middlewares.use(SessionsMiddleware.self) // 2
     services.register(middlewares) // 4
    
     // There is a default limit of 1 million bytes for incoming requests, which you can override by registering a custom NIOServerConfig instance like this:
@@ -73,16 +74,12 @@ public func configure(_ config: inout Config, _ env: inout Environment, _ servic
     migrations.add(model: Token.self, database: .psql)
     migrations.add(model: DepartmentDepartmentPivot.self, database: .psql)
     migrations.add(model: City.self, database: .psql)
-    migrations.add(model: Contact.self, database: .psql)
     migrations.add(model: Ad.self, database: .psql)
-    migrations.add(model: Category.self, database: .psql)
     migrations.add(model: CityAdPivot.self, database: .psql)
     migrations.add(model: Demand.self, database: .psql)
     migrations.add(model: Offer.self, database: .psql)
-    migrations.add(model: DemandOfferPivot.self, database: .psql)
     migrations.add(model: Heart.self, database: .psql)
-    migrations.add(model: CategoryOfferPivot.self, database: .psql)
-    migrations.add(model: CategoryDemandPivot.self, database: .psql)
+    migrations.add(model: UserUserPivot.self, database: .psql)
     
     //  migrations.add(migration: RootCategory.self, database: .psql)
     migrations.add(migration: AdminUser.self, database: .psql)  // 2
@@ -99,7 +96,7 @@ public func configure(_ config: inout Config, _ env: inout Environment, _ servic
     let serverConfigure = NIOServerConfig.default(hostname: "localhost", port: 9090)
     services.register(serverConfigure)
     // Tells your application to use MemoryKeyedCache when asked for the KeyedCache service. The KeyedCache service is a key-value cache that backs sessions.
-    config.prefer(MemoryKeyedCache.self, for: KeyedCache.self)
+ //   config.prefer(MemoryKeyedCache.self, for: KeyedCache.self)
     
     
 }

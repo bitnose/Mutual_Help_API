@@ -8,7 +8,7 @@
 import Foundation
 import Vapor
 
-/// Custom AdminMiddleware looks if a user has admin access: If not it sends a forbidden response.
+/// # Custom AdminMiddleware looks if a user has admin access: If not it sends a forbidden response.
 /// 1. Called with each Request that passes through this middleware.
 /// 2. Get the user from the request.
 /// 3. Looks if a user has admin access: If not, throw an Abort with forbidden response.

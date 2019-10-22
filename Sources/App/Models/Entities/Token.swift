@@ -31,6 +31,16 @@ final class Token: Codable {
 
 extension Token: PostgreSQLUUIDModel {}
 
+
+/*
+ Setting up the Foreign Key Constraints
+ 1. Conform the Model to Migration
+ 2. Implement prepare(on:) as required by Migration. This overrides the default implementation.
+ 3. Create the table for Ad in the database
+ 4. Use addProperties(to:) to add all the fields to the database. This means you don't need to add each column manually.
+ 5. Add a reference between the adID property on Ad and the id property on Ad. This sets up the foreign key constraint between the two tables
+ */
+
 extension Token: Migration {
     static func prepare(on connection: PostgreSQLConnection) -> Future<Void> {
         return Database.create(self, on: connection) { builder in
@@ -71,3 +81,5 @@ extension Token: Authentication.Token { // 1
 extension Token: BearerAuthenticatable { // 4
     static let tokenKey: TokenKey = \Token.token // 5
 }
+
+

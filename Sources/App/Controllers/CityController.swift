@@ -14,31 +14,28 @@ struct CityController : RouteCollection {
     // MARK: - Register Routes
     func boot(router: Router) throws {
         
-        /// 1. Create a TokenAuthenticationMiddleware for User. This uses BearerAuthenticationMiddleware to extract the bearer token out of the request. The middleware then converts this token into a logged in user.
-        /// 2. Admin group for the protected routes (user must have an admin access)
+        // 1. Create a TokenAuthenticationMiddleware for User. This uses BearerAuthenticationMiddleware to extract the bearer token out of the request. The middleware then converts this token into a logged in user.
         let cityRoutes = router.grouped("api/cities")
         // 1
         let tokenAuthMiddleware = User.tokenAuthMiddleware()
         let guardAuthMiddleware = User.guardAuthMiddleware()
-        let adminGroup = cityRoutes.grouped(tokenAuthMiddleware, guardAuthMiddleware, AdminMiddleware()) // 2
-       
-        /*
-         Create a new route path for the api/ads
-     
-         
-         - Grouped Route (/api/ads) +  Request Type (POST, GET, PUT, DELETE) (+ Path component + Method)
-         
-         1. Post Request - Post route with method which creates new Cities
-         2. Get Request - Retrieve all Cities
-         3. Get Request - Get the Ads of the City
-         4. Get Request - Get the City with ID
-         */
+        let standardGroup = cityRoutes.grouped(tokenAuthMiddleware, guardAuthMiddleware)
+  
+        
+        // Create a new route path for the api/ads
+        // - Grouped Route (/api/ads) +  Request Type (POST, GET, PUT, DELETE) (+ Path component + Method)
+        
+        // MARK: - OPEN ACCESS
+        
+        // 1. Get Request - Get the City with ID
+
+        cityRoutes.get("id", UUID.parameter, use: getCityWithDepartmentHandler) // 1
         
         
-        adminGroup.post(use: createHandler) // 1
-        cityRoutes.get(use: getAllHandler) // 2
-        cityRoutes.get(City.parameter, "ads",  use: getAdsHandler) // 3
-        cityRoutes.get("id", UUID.parameter, use: getCityWithDepartmentHandler) // 4
+        // MARK: - STANDARD ACCESS
+        // 1. Post Request - Post route with method which creates new Cities
+        standardGroup.post(use: createHandler) // 1
+        
         
         
         
@@ -46,8 +43,13 @@ struct CityController : RouteCollection {
     
     // MARK: - Handlers
     
-    /*
-     Add City
+    /**
+    # Add City
+     - parameters:
+         - req: Request
+     - throws: Abort
+     - Returns: Future  City
+     
      1. Function return Future<City>
      2. Decode the request's JSON into an object. This is simple because the Model conforms to Content. Decode returns a Future; use flatMap(to:) to extract the object when decoding completes.
      3. Save the object.
@@ -58,41 +60,14 @@ struct CityController : RouteCollection {
             return city.save(on: req) // 3
         }
     }
-    //moi
-    /* Retrieve All Cities
-     1. Only parameter is request itself
-     2. Perform Query to Retrieve All (Fluent adds functions to models to be able to perform queries on them. Provides a thread to perform the work.) Function fetches all Objects from the table and returns an array of Objects
-     */
+
     
-    func getAllHandler(_ req: Request) throws -> Future<[City]> { // 1
-        return City.query(on: req).all() // 2
-    }
-    
-    /*
-     Get Children
-     1. Define a new route handler, getAdsHandler(_:), that returns Future<[Ad]>
-     2. Fetch the Object specified in the request’s parameters and unwrap the returned future.
-     3. Use the computed property to get the children using a Fluent query to return all the ads.
-     */
-    
-    func getAdsHandler(_ req: Request) throws -> Future<[Ad]> { // 1
-        return try req.parameters.next(City.self).flatMap(to: [Ad].self) { city in // 2
-            try city.adsOfCity.query(on: req).all() // 3
-        }
-    }
-    
-    /// Get city with ID Handler returns Future<CityWithDepartment>
-    /// 1. Fetch the Object specified in the request’s parameters and unwrap the returned future.
-    /// 2. Use the join to fetch the parent.
-    /// 3. Filter with the city ID.
-    /// 4. Return city object.
-    
-    
-    
-    
-    
-    
-    /*
+    /**
+     # Get City With Department
+     - parameters:
+         - req: Request
+     - throws: Abort
+     - Returns: Future  CityWithDepartment
      1. Handler fetches the City with ID and its Department (returns Future<CityWithDepartment>)
      2. Get the UUID parameter from the request and unwrap it.
      3. Create a query on the City table.
@@ -120,10 +95,3 @@ struct CityController : RouteCollection {
     }
 }
 
-/// CityWithDepartment Datatype contains the city and the department of the city
-/// - city
-/// - department
-struct CityWithDepartment : Content {
-    let city : City
-    let department : Department
-}
