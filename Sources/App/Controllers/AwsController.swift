@@ -9,7 +9,7 @@ import S3
 import Vapor
 import FluentPostgreSQL
 
-/// # Class responsible for handling AWS S3
+/// Class responsible for handling AWS S3
 final class AwsController: RouteCollection {
     
     // MARK: - Properties
@@ -44,15 +44,8 @@ final class AwsController: RouteCollection {
     // MARK: - AWS Route Handlers
     
     /// # Route handler to post an image to the presignedURl (to the AWS S3 Bucket).
-    ///
-    /// - parameters:
-    ///    - req: Request
-    /// - returns: Future : Response
-    /// - throws: Abort
-    ///
     /// 1. Method takes a request and ImageData as a parameters.
     /// 2. Decode the content of the request to the ImageData. After completion handler is completed, flatMap the data to Future<Response>.
-    /// 2a) Get the authenticated user.
     /// 3. Unwrap the ad id.
     /// 3.a) Look if the user has the ad which is the same as the adID from the request. If it doesn't exists throw an abort (.forbidden).
     /// 4. Get the url by calling the preparePresignedUrl -method.
@@ -68,9 +61,10 @@ final class AwsController: RouteCollection {
     
     func postImageHandler(_ req: Request) throws -> Future<Response> { // 1
         
+    
         return try req.content.decode(ImageData.self).flatMap(to: Response.self) { data in // 2
         
-            let user = try req.requireAuthenticated(User.self) // 2a
+            let user = try req.requireAuthenticated(User.self)
          
             guard let id = data.adID else {throw Abort(.internalServerError)} // 3
             
@@ -94,18 +88,10 @@ final class AwsController: RouteCollection {
                 }
                 return res // 13
             }
-        }.catchMap({ error  in
-            throw Abort(.internalServerError)
-        })
+        }
     }
     
     /// # A Method to get the url to display the image file that is stored in the Amazon Web Service S3 -bucket.
-    ///
-    /// - parameters:
-    ///    - req: Request
-    /// - returns: Future : [LinkData]
-    /// - throws: Abort
-    ///
     /// 1. Function takes in a request and returns an array of future LinkData.
     /// 2. Making a s3 signer.
     /// 3. An empty array of LinkData what is created to store the LinkData.
@@ -156,18 +142,10 @@ final class AwsController: RouteCollection {
                 
             }
             return data // 15
-        }.catchMap({ error in
-            throw Abort(.internalServerError)
-        })
+        }
     }
     
     /// # Route Handler to delete image from the aws bucket
-    ///
-    /// - parameters:
-    ///    - req: Request
-    ///  - returns: Future : Response
-    /// - throws: Abort
-    ///
     /// 1. Route handler returns Future<Response>.
     /// 2. Extract an id of the ad from the request's parameters.
     /// 3. Extract a name of the file from the request's paramers.
@@ -213,13 +191,6 @@ final class AwsController: RouteCollection {
     
     
     /// # Route Handler to delete image from the aws bucket
-    ///
-    /// - parameters:
-    ///    - req: Request
-    ///    - name : String
-    /// - returns: Future : Response
-    /// - throws: Abort
-    ///
     /// 1. Route handler returns Future<Response>.
     /// 2. Make a presigned url to delete ad by calling a method which takes the request and the imageName as parameters.
     /// 3. Make a client.
@@ -249,8 +220,6 @@ final class AwsController: RouteCollection {
                 print("Error with deleting image", res.http.status.code) // 10
             }
             return res // 11
-        }.catchMap { error in
-            throw Abort(.internalServerError)
         }
     }
 }
@@ -259,15 +228,8 @@ final class AwsController: RouteCollection {
 // MARK: - This extension consists of Methods to Prepare urls
 /// Private extension for AwsController for Aws Handlers (Amazon Web Servcies)
 private extension AwsController {
-
+        
     /// # Method to prepare presigned URL to put an image to the AWS S3 Bucket
-    ///
-    /// - parameters:
-    ///    - req: Request
-    ///    - ad : UUID
-    /// - returns: String
-    /// - throws: Abort
-    ///
     /// 1. Prepares presigned URL, user should send PUT request with image to this URL
     /// 2. Make a baseUrl constant to store an awsConfig's url -property.
     /// 3. Make a imagePath constant to store the awsConfig's imagePaht -property.
@@ -295,7 +257,6 @@ private extension AwsController {
         url.appendPathComponent(newFilename) // 7
         let headers = ["x-amz-acl": "public-read"] // 8
         
-        
         let s3 = try request.makeS3Signer() // 9
         let result = try s3.presignedURL(for: .PUT, url: url, expiration: Expiration.hour, headers: headers) // 10
       
@@ -313,12 +274,6 @@ private extension AwsController {
     
     
     /// # Method to prepare url to delete a file
-    ///
-    /// - parameters:
-    ///    - req: Request
-    ///    - returns: Future : Response
-    /// - throws: Abort
-    ///
     /// 1. Parameters: Request & String (a name of the image) and return a string
     /// 2. Make a baseUrl constant to store an awsConfig's url -property.
     /// 3. Make a imagePath constant to store the awsConfig's imagePaht -property.
@@ -350,5 +305,4 @@ private extension AwsController {
         return presignedUrl // 11
     }
 }
-
 

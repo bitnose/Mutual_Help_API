@@ -97,8 +97,8 @@ struct AdController : RouteCollection {
         guard let id = user.id else {throw Abort(.internalServerError)} // 3
 
         return try req.content.decode(CreateAdData.self).flatMap(to: Ad.self) { adData in // 4
-
-            let ad = Ad(note: adData.note, cityID: adData.cityID, userID : id) // 5
+            let ad = Ad(note: adData.note, cityID: adData.cityID, userID: id, generosity: nil) // 5
+            
             return ad.save(on: req) // 6
         }
     }
@@ -138,7 +138,7 @@ struct AdController : RouteCollection {
         }
     
 
-    /// # Delete by ID
+    /// # Soft Delete Ad by ID
     /// - parameters:
     ///    - req: Request
     ///    - returns: Future : HTTPStatus
@@ -171,7 +171,7 @@ struct AdController : RouteCollection {
             if try user.userType == .admin || existingAd.userID == user.requireID() { // 5a
             
                 do { // 6
-                    _ = try existingAd.willSoftDelete(on: req, ad: existingAd)
+                    _ = try existingAd.willDelete(on: req, ad: existingAd, force: false)
                     
                     // 7
                     if existingAd.images != nil {
@@ -232,7 +232,9 @@ struct AdController : RouteCollection {
                 guard let date = existingAd.adCreatedAt else {throw Abort.init(.notFound)} // 10
                 let stringDate = date.formatToFrenchDate(date: date) // 11
            
-                return AdOfUserData(adID: try existingAd.requireID(), note: existingAd.note, images: existingAd.images, demands: demands, offers: offers, city: city, hearts: hearts.count, createdAt: stringDate) // 12
+                return AdOfUserData(adID: try existingAd.requireID(), note: existingAd.note, images: existingAd.images, demands: demands, offers: offers, city: city, hearts: hearts.count, createdAt: stringDate, generosity: nil) // 12
+                
+               
             }
         }
     }
@@ -369,7 +371,8 @@ struct AdController : RouteCollection {
                             
                                 return city.department.get(on: req).map(to: AdObject.self) { dep in // 20.
                                     
-                                    AdObject(note: ad.note, adID: adID,  demands: demands, offers: offers, city: city, department: dep) // 21.
+                                    AdObject(note: ad.note, adID: adID,  demands: demands, offers: offers, city: city, department: dep, generosity: nil) // 21.
+                                   
                                 }
                             }
                         }
@@ -427,7 +430,7 @@ struct AdController : RouteCollection {
                         let stringDate = date.formatToFrenchDate(date: date)
                         
                         
-                        return AdWithUser(ad: ad, user: publicUser, demands: demands, offers: offers, city: city, department: department, hearts: hearts.count, createdAt: stringDate) // 12
+                        return AdWithUser(ad: ad, user: publicUser, demands: demands, offers: offers, city: city, department: department, hearts: hearts.count, createdAt: stringDate, generosity: nil) // 12
                         
                     }
                 }
@@ -475,7 +478,7 @@ struct AdController : RouteCollection {
                     guard let date = ad.adCreatedAt else {throw Abort.init(.notFound)} // 9.
                     let stringDate = date.formatToFrenchDate(date: date) // 10.
                     
-                    return AdData(note: ad.note, adID: try ad.requireID(), images: ad.images, demands: demands, offers: offers, department: department, city: city, hearts: hearts.count, createdAt: stringDate, userID: ad.userID) // 11.
+                    return AdData(note: ad.note, adID: try ad.requireID(), images: ad.images, demands: demands, offers: offers, department: department, city: city, hearts: hearts.count, createdAt: stringDate, userID: ad.userID, generosity: nil) // 11.
                 }
             }
         }

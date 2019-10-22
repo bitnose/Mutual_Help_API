@@ -83,7 +83,7 @@ struct UserController : RouteCollection {
         tokenAuthGroup.put(UUID.parameter, "contacts", "requests", "accept", use: acceptContactRequestHandler) // 9
         tokenAuthGroup.get(Ad.parameter, "contacts", use: getSingleContactHandler) // 10
         tokenAuthGroup.delete(UUID.parameter, "contacts", "requests", "decline", use: declineContactRequestHandler) // 11
-        tokenAuthGroup.delete("delete", "user", User.parameter, use: deleteUserHandler) // 12
+        tokenAuthGroup.delete("delete", "user", User.parameter, use: forceDeleteUserHandler) // 12
         
         // MARK: - ADMIN ACCESS
         //
@@ -120,7 +120,7 @@ struct UserController : RouteCollection {
      16.  Catch the errors and print them out. Throw Abort.
      17. If the user doesn't have the admin access or if the authenticated user is not the same as the user to remove, throw an abort (forbidden).
      */
-    func deleteUserHandler(_ req: Request) throws -> Future<HTTPStatus> {
+    func forceDeleteUserHandler(_ req: Request) throws -> Future<HTTPStatus> {
         
         return try req.parameters.next(User.self).flatMap(to: HTTPStatus.self) { userToRemove in // 1
             
@@ -132,7 +132,7 @@ struct UserController : RouteCollection {
                     do { // 5
                         _ = try adsToRemove.map { // 6
                         
-                            _ = try $0.willSoftDelete(on: req, ad: $0).catchMap({ error in // 7
+                            _ = try $0.willDelete(on: req, ad: $0, force: true).catchMap({ error in // 7
                                 print(error, "Error with deleting the child models of the ad.") // 8
                                 throw Abort(.internalServerError)
                             })
@@ -150,8 +150,9 @@ struct UserController : RouteCollection {
                         _ = $0.delete(on: req).transform(to: ()) // 13
 
                         }
-                        return try userToRemove.willSoftDelete(on: req, user: userToRemove).flatMap(to: HTTPStatus.self) { _ in // 14
-                            return userToRemove.delete(on: req).transform(to: .noContent) // 15
+                        return try userToRemove.willDelete(on: req, user: userToRemove).flatMap(to: HTTPStatus.self) { _ in // 14
+                            return userToRemove.delete(force: true, on: req).transform(to: .noContent) // 15
+                            
                                 
                         }
                     } catch let error { // 16

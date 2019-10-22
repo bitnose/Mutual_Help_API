@@ -44,6 +44,7 @@ struct AdObject : Content {
     let offers : [Offer]
     let city : City
     let department : Department
+    let generosity : Int?
 }
 
 /**
@@ -71,6 +72,7 @@ struct AdData : Content {
     let hearts : Int
     let createdAt : String
     let userID : UUID
+    let generosity : Int?
     
 }
 
@@ -82,6 +84,7 @@ struct AdData : Content {
 struct CreateAdData : Content {
     let note : String
     let cityID : UUID
+    let generosity : Int?
 }
 
 
@@ -106,6 +109,7 @@ struct AdOfUserData : Content {
     let city : City
     let hearts : Int
     let createdAt : String
+    let generosity : Int?
 }
 
 /**
@@ -126,6 +130,7 @@ struct AdInfoPostData : Content {
     let city : String
     let cityID : UUID
     let departmentID : UUID
+    let generosity : Int?
 }
 
 /** # Data type contains data to update an existing city
@@ -160,6 +165,7 @@ struct AdWithUser : Content {
     let department : Department
     let hearts : Int
     let createdAt : String
+    let generosity : Int?
 
 }
 

@@ -32,14 +32,16 @@ final class Ad : Codable {
     var images : [String]?
     var deletedAt: Date?
     var userID : User.ID
+    var generosity : Int?
 
     // Initialize
-    init(note : String, cityID : City.ID, images: [String]? = nil, userID : User.ID) {
+    init(note : String, cityID : City.ID, images: [String]? = nil, userID : User.ID, generosity: Int?) {
         
         self.note = note
         self.cityID = cityID
         self.images = images
         self.userID = userID
+        self.generosity = generosity
     }
     
     // Fluent will automatically manage these records
@@ -48,29 +50,30 @@ final class Ad : Codable {
     // Add to new key path that Fluent checks when you call delete(on:). If the key path exists, Fluent sets the current date on the property and saves the updated model. Otherwise, it deletes the model from the database
     static var deletedAtKey : TimestampKey? = \.deletedAt
     
-    /// # WillSoftDelete
+    /// # WillDelete
     /// - parameters:
     ///     - req: Request
     ///     - ad : Ad to delete
+    ///     - force : Boolean value which determines whether to use soft deletion  or force deletion
     /// - throws: Abort error
     /// - returns: Future Void
     /// 1. This method soft deletes children of the ad what is going to be deleted. Call this method before deleting the ad. Function throws.
     /// 2. Query the demands of the ad and delete them. Catch errors and print a message and throw abort.
     /// 3. Query the offers of the ad and delete them. Catch errors and print a message and throw abort.
     /// 4. Return and Query the hearts of the ad and delete them, transform to void. Catch errors and print a message and throw abort.
-    func willSoftDelete(on req: Request, ad: Ad) throws -> Future<Void> { // 1
+    func willDelete(on req: Request, ad: Ad, force: Bool) throws -> Future<Void> { // 1
     
-        _ = try ad.demands.query(on: req).delete().catchMap({ error in
+        _ = try ad.demands.query(on: req).delete(force: force).catchMap({ error in
             print(error, "Can't delete the demands")
              throw Abort.init(.internalServerError)
         }) // 2
-        _ = try ad.offers.query(on: req).delete().catchMap({ error in
+        _ = try ad.offers.query(on: req).delete(force: force).catchMap({ error in
              print(error, "Can't delete the offers.")
             throw Abort.init(.internalServerError)
         }) // 3
         
         // 4
-        return try ad.hearts.query(on: req).delete().catchMap({ error in
+        return try ad.hearts.query(on: req).delete(force: force).catchMap({ error in
              print(error, "Can't delete the hearts")
             
         }).transform(to: ())

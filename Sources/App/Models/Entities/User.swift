@@ -100,7 +100,7 @@ extension User {
     }
     
     
-    /** # This method soft deletes child models of the user  and sibling models of the user what is going to be deleted. Call this method before deleting the user.
+    /** # This method force deletes child models of the user and detaches relationships between sibling models of the user who is going to be deleted. Call this method before deleting the user.
      - Parameters:
         - on req: request
         - user: the user what will be removed
@@ -111,9 +111,9 @@ extension User {
     2. Query pivots of the user and delete them. Catch errors and print a message.
     3. Return and Query the pivots of the user and delete them, transform to void. Catch errors and print a message.
  */
-       func willSoftDelete(on req: Request, user: User) throws -> Future<Void> { // 1
+       func willDelete(on req: Request, user: User) throws -> Future<Void> { // 1
        
-        _ = try user.authTokens.query(on: req).delete().catch({ error in
+        _ = try user.authTokens.query(on: req).delete(force: true).catch({ error in
              print(error, "Can't delete the tokens")
         })
         
