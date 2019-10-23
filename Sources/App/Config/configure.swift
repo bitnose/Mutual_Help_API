@@ -16,7 +16,7 @@ public func configure(_ config: inout Config, _ env: inout Environment, _ servic
     try services.register(AuthenticationProvider()) // 2
     /// Configure AWS S3 Signer
     let awsConfig = try AwsConfiguration().setup(services: &services)
-
+  
     // Register routes to the router
     let router = EngineRouter.default()
     try routes(router, awsConfig: awsConfig)
@@ -37,20 +37,25 @@ public func configure(_ config: inout Config, _ env: inout Environment, _ servic
     services.register(middlewares) // 4
    
     // There is a default limit of 1 million bytes for incoming requests, which you can override by registering a custom NIOServerConfig instance like this:
+    
     services.register(NIOServerConfig.default(maxBodySize: 20_000_000))
+    // Get the environment keys
+     Environment.dotenv(filename: "postgres-config.env")
     
-    // Configure a PostgreSQL database
+    // Fetch the environment variables
+    let databaseName = Environment.get("POSTGRES_DATABASE_NAME", "")
+    let hostname = Environment.get("POSTGRES_HOSTNAME", "")
+    let databasePort =  Environment.get("POSTGRES_PORT", Int())
+    let username =  Environment.get("POSTGRES_USERNAME", "")
+    let password = Environment.get("POSTGRES_PASSWORD", "")
     
-    let databaseName = "vapor"
-    let hostname = "localhost"
-    let databasePort = 5432
-    
+    /// # Configure a PostgreSQL database
     let databaseConfig = PostgreSQLDatabaseConfig(
         hostname: hostname,
         port: databasePort,
-        username: "vapor",
+        username: username,
         database: databaseName,
-        password: "password")
+        password: password)
     let database = PostgreSQLDatabase(config: databaseConfig)
     
     // Register the configured PostgreSQL database to the database config.
