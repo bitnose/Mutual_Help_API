@@ -22,7 +22,7 @@ struct CountryController : RouteCollection {
          4. Create a adminGroup for the routes with admin access.
          */
         
-        let countryRoutes = router.grouped("api/countries")
+        let countryRoutes = router.grouped("countries")
         let tokenAuthMiddleware = User.tokenAuthMiddleware() // 1
         let guardAuthMiddleware = User.guardAuthMiddleware() // 2
         let tokenAuthGroup = countryRoutes.grouped(tokenAuthMiddleware, guardAuthMiddleware) // 3

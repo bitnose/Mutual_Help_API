@@ -15,7 +15,7 @@ struct CityController : RouteCollection {
     func boot(router: Router) throws {
         
         // 1. Create a TokenAuthenticationMiddleware for User. This uses BearerAuthenticationMiddleware to extract the bearer token out of the request. The middleware then converts this token into a logged in user.
-        let cityRoutes = router.grouped("api/cities")
+        let cityRoutes = router.grouped("cities")
         // 1
         let tokenAuthMiddleware = User.tokenAuthMiddleware()
         let guardAuthMiddleware = User.guardAuthMiddleware()

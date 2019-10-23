@@ -28,7 +28,7 @@ struct AdController : RouteCollection {
 
         
         // API end point which handles all ad routes
-        let adRoutes = router.grouped("api", "ads")
+        let adRoutes = router.grouped("ads")
         
         // Create a TokenAuthenticationMiddleware for User. This uses BearerAuthenticationMiddleware to extract the bearer token out of the request. The middleware then converts this token into a logged in user.
         let tokenAuthMiddleware = User.tokenAuthMiddleware()

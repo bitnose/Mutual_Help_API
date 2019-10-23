@@ -21,7 +21,7 @@ struct DepartmentController : RouteCollection {
         /// 2. Create an instance of GuardAuthenticationMiddleware which ensures that requests contain valid authorization
         /// 3. Create a adminGroup for the routes with admin access. 
 
-        let departmentRoutes = router.grouped("api/departments")
+        let departmentRoutes = router.grouped("departments")
         let tokenAuthMiddleware = User.tokenAuthMiddleware() // 1
         let guardAuthMiddleware = User.guardAuthMiddleware() // 2
         let adminGroup = departmentRoutes.grouped(tokenAuthMiddleware, guardAuthMiddleware, AdminMiddleware()) // 3

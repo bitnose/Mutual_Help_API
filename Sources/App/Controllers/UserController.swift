@@ -24,7 +24,7 @@ struct UserController : RouteCollection {
      func boot(router: Router) throws {
         
         /// Grouped Routes (/api/users)
-        let userRoute = router.grouped("api/users")
+        let userRoute = router.grouped("users")
 
         /// # Route groups
         /// 2. Create a TokenAuthenticationMiddleware for User. This uses BearerAuthenticationMiddleware to extract the bearer token out of the request. The middleware then converts this token into a logged in user. Create a

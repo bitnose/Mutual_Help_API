@@ -20,7 +20,7 @@ struct OfferController : RouteCollection {
         // 2. Functionality: Error to throw if the type is not authed.
         // 3. This group of routes requires the user to have an admin access OR standard access.
     
-        let demandRoutes = router.grouped("api/offers")
+        let demandRoutes = router.grouped("offers")
         let tokenAuthMiddleware = User.tokenAuthMiddleware() // 1
         let guardAuthMiddleware = User.guardAuthMiddleware() // 2
         let standardRoutes = demandRoutes.grouped(tokenAuthMiddleware, guardAuthMiddleware) // 3

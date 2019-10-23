@@ -21,7 +21,7 @@ struct DemandController : RouteCollection {
         // 4. This group of routes requires the user to have an admin access OR standard access.
         // 5. This group of routes requires that the user has an admin access OR standard access AND it ensures that the auhtenticated user is the one who created the ad what he/she is going to manipulate ie. it authorizes the user to perform the action. 
         
-        let demandRoutes = router.grouped("api/demands")
+        let demandRoutes = router.grouped("demands")
         let tokenAuthMiddleware = User.tokenAuthMiddleware() // 1
         let guardAuthMiddleware = User.guardAuthMiddleware() // 2
         let adminRoutes = demandRoutes.grouped(tokenAuthMiddleware, guardAuthMiddleware, AdminMiddleware()) // 3
