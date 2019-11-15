@@ -62,7 +62,8 @@ public func configure(_ config: inout Config, _ env: inout Environment, _ servic
     var databases = DatabasesConfig()
     databases.add(database: database, as: .psql)
     services.register(databases)
-    
+let serverConfig = NIOServerConfig.default(hostname: "0.0.0.0")
+services.register(serverConfig)    
     /*
      Configure migrations:
      1. Add Model to the Migration list - Adds the new model to the migrations so Fluent prepares the table in the database
@@ -86,9 +87,7 @@ public func configure(_ config: inout Config, _ env: inout Environment, _ servic
     migrations.add(model: Heart.self, database: .psql)
     migrations.add(model: UserUserPivot.self, database: .psql)
     
-    //  migrations.add(migration: RootCategory.self, database: .psql)
     migrations.add(migration: AdminUser.self, database: .psql)  // 2
-  //   migrations.add(migration: AdminUserToo.self, database: .psql)  // 2AdminUserToo
     services.register(migrations)
     
     
