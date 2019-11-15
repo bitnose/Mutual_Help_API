@@ -10,6 +10,8 @@ import Vapor
 import Crypto
 import Fluent
 import Authentication
+//
+import SwiftSMTP
 
 // Define different route handlers. To access routes you must register handlers with the router. A simple way to do this is to call the functions inside your controller from routes.swift
 struct UserController : RouteCollection {
@@ -215,7 +217,10 @@ struct UserController : RouteCollection {
         return User(firstname: data.firstname, lastname: data.lastname, email: data.email, password: hashedPassword, userType: .standard) // 3
             .save(on: req).flatMap(to: Token.self) { savedUser in // 4
             let token = try Token.generate(for: savedUser) // 5
+                self.sendMail(name: "Anniina", email: "anniina.korkiakangas@gmail.com")
             return token.save(on: req) // 6
+                
+                
             
         }
     }
@@ -645,5 +650,49 @@ struct UserController : RouteCollection {
             }
         }
     }
+    
+    
+    // MARK: - SMTP Stuff
+    
+//
+    // Confirmation email
+    func sendMail(name: String, email: String) {
+        let smtp = SMTP (
+            hostname: "localhost",     // SMTP server address
+            email: "eegj@eegj.fr",        // username to login
+            password: "",            // password to login
+            port: 587,
+            tlsMode: .requireSTARTTLS,
+            tlsConfiguration: nil
+        )
+
+        // What are in the message, and emails, etc
+        let EEGJ = Mail.User(name: "Little Me - Thyself", email: "anniina.korkiakangas@gmail.com")
+        let name = Mail.User(name: name, email: email)
+
+    
+        
+        //Creating  a mail object
+        let mail = Mail(
+            from: EEGJ,
+            to: [name],
+            subject: "Is it working??",
+            text: "We did it!"
+        )
+
+        // Sending the mail and if errors appear then printing them out
+        smtp.send(mail) { (error) in
+            if let error = error {
+                
+                print(error, "ei toimi")
+            }
+        }
+    }
+
+    
+    
+    
+    
+    
 }
 
