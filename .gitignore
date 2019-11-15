@@ -4,6 +4,10 @@ xcuserdata
 *.xcodeproj
 DerivedData/
 .DS_Store
+<<<<<<< HEAD
 .env
 aws-config.env
 postgres-config.env
+=======
+
+>>>>>>> cd422cfdf7672666c4dd8a4673abbd3fc9ec7ef6
