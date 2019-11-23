@@ -61,7 +61,7 @@ struct UserController : RouteCollection {
         userRoute.post(LoginPostData.self, at: "login", use: loginPostHandler) // 1
         userRoute.post(RegisterPostData.self, at: "register", use: registerUserHandler) // 2
         userRoute.post("resetPassword", use: resetPasswordHandler) // 3
-        userRoute.post("confirmResetToken", use: confirmResetTokenHandler)
+        userRoute.post("confirmResetToken", String.parameter, use: confirmResetTokenHandler)
         userRoute.post(ResetPasswordTokenData.self, at: "updatePassword", use: updatePasswordHandler)
         
         // MARK: - STANDARD ACCESS
@@ -742,33 +742,34 @@ struct UserController : RouteCollection {
     */
     func confirmResetTokenHandler(_ req: Request) throws -> Future<IsValid> {
         
-        return try req.content.decode(String.self).flatMap(to: IsValid.self) { resetPasswordString in // 1
+        let token = try req.parameters.next(String.self)
+        
+
             
-            return ResetPasswordToken.query(on: req).filter(\.token == resetPasswordString).first().map(to: IsValid.self) { foundToken in // 2
+        return ResetPasswordToken.query(on: req).filter(\.token == token).first().map(to: IsValid.self) { foundToken in // 2
                 // 3
-                if foundToken != nil {
+            if foundToken != nil {
                     
-                    let now = Date() // 4
-                    guard let tokenCreated = foundToken!.createdAt else { // 5
+                let now = Date() // 4
+                guard let tokenCreated = foundToken!.createdAt else { // 5
                         
-                        _  = foundToken!.delete(on: req) // 6
-                        return IsValid(isValid: false) // 7
-                     }
+                    _  = foundToken!.delete(on: req) // 6
+                    return IsValid(isValid: false) // 7
+                }
                     // 7
-                    let expirationDate = tokenCreated.addingTimeInterval(60*60) // 1h later
-                    print ("now = \(now), expirationDate = \(expirationDate), resetToken date = \(tokenCreated)")
+                let expirationDate = tokenCreated.addingTimeInterval(60*60) // 1h later
+                print ("now = \(now), expirationDate = \(expirationDate), resetToken date = \(tokenCreated)")
                         // 8
-                        if now.compare(expirationDate) == .orderedAscending {
-                            return IsValid(isValid: true)
+                if now.compare(expirationDate) == .orderedAscending {
+                    return IsValid(isValid: true)
                                    
-                        } else { // 10
-                            _  = foundToken!.delete(on: req)
-                            return IsValid(isValid: false)
-                        }
-                    // 11
-                } else {
+                } else { // 10
+                    _  = foundToken!.delete(on: req)
                     return IsValid(isValid: false)
                 }
+                    // 11
+            } else {
+                return IsValid(isValid: false)
             }
         }
     }
