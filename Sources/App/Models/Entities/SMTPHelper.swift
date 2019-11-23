@@ -79,7 +79,7 @@ final class SMTPHelper {
             from: sender,
             to: [receiver],
             subject: "Reset Your Password",
-            text: "Hi \(name)!You've requested to reset your password. Click this link to reset your password: https://eegj.fr/resetPassword?token=\(resetTokenString)"
+            text: "Hi \(name)!You've requested to reset your password. Click this link to reset your password: https://eegj.fr/resetPassword?token=\(resetTokenString) If you didn't request to reset the password, ignore this mail."
         
         )
         
