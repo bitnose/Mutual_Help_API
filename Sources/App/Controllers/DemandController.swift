@@ -24,7 +24,7 @@ struct DemandController : RouteCollection {
         let demandRoutes = router.grouped("demands")
         let tokenAuthMiddleware = User.tokenAuthMiddleware() // 1
         let guardAuthMiddleware = User.guardAuthMiddleware() // 2
-        let adminRoutes = demandRoutes.grouped(tokenAuthMiddleware, guardAuthMiddleware, AdminMiddleware()) // 3
+//        let adminRoutes = demandRoutes.grouped(tokenAuthMiddleware, guardAuthMiddleware, AdminMiddleware()) // 3
         let standardRoutes = demandRoutes.grouped(tokenAuthMiddleware, guardAuthMiddleware) // 4
        
         
