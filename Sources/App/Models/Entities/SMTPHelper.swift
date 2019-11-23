@@ -22,7 +22,6 @@ final class SMTPHelper {
     // Inits
     init() {
        // Set up configurations
-        
         let smtpConfig = config.setup()
         self.smtp = SMTP(hostname: smtpConfig.host, email: smtpConfig.email, password: smtpConfig.password, port: Int32(smtpConfig.port), tlsMode: .requireSTARTTLS, tlsConfiguration: nil)
         

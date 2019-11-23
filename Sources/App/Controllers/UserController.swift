@@ -688,6 +688,7 @@ struct UserController : RouteCollection {
      
      1. Decode the email address from the request's content.
      2. Ensure there’s a user associated with the email address. Otherwise throw abort.
+     2. Ensure there is only one reset token per user at once by making a query to the ResetPasswordToken table and deleting all the existing reset tokens from that user.
      3. Generate a token string using CryptoRandom.
      4. Create a ResetPasswordToken object with the token string and the user’s ID
      5. Save the token in the database and unwrap the returned future.
@@ -703,19 +704,17 @@ struct UserController : RouteCollection {
         
             return User.query(on: req).filter(\.email == email.email).first().unwrap(or: Abort(.notFound)).flatMap(to: Response.self) { user in // 2
                 
-                let resetTokenString = try CryptoRandom().generateData(count: 32).base32EncodedString() // 3
-                
-                let resetToken = try ResetPasswordToken(token: resetTokenString, userID: user.requireID()) // 4
-                    
-                return resetToken.save(on: req).map(to: Response.self) { _ in // 5
-                    
-        
-                // 6
-               
-                    SMTPHelper.init().sendResetPasswordEmail(name: user.firstname, email: user.email, resetTokenString: resetTokenString)
-            
-                    
-                    return req.response() // 7
+                // 2A
+                return try ResetPasswordToken.query(on: req).filter(\.userID == user.requireID()).delete().flatMap(to: Response.self) { _ in
+                   
+                    let resetTokenString = try CryptoRandom().generateData(count: 32).base32EncodedString() // 3
+                                
+                    let resetToken = try ResetPasswordToken(token: resetTokenString, userID: user.requireID()) // 4
+                    return resetToken.save(on: req).map(to: Response.self) { _ in // 5
+       
+                        SMTPHelper.init().sendResetPasswordEmail(name: user.firstname, email: user.email, resetTokenString: resetTokenString)
+                        return req.response() // 7
+                    }
                 }
             }
         }
