@@ -86,6 +86,7 @@ services.register(serverConfig)
     migrations.add(model: Offer.self, database: .psql)
     migrations.add(model: Heart.self, database: .psql)
     migrations.add(model: UserUserPivot.self, database: .psql)
+    migrations.add(model: ResetPasswordToken.self, database: .psql)
     
     migrations.add(migration: AdminUser.self, database: .psql)  // 2
     services.register(migrations)
