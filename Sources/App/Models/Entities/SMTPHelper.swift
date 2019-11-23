@@ -22,6 +22,7 @@ final class SMTPHelper {
     // Inits
     init() {
        // Set up configurations
+        
         let smtpConfig = config.setup()
         self.smtp = SMTP(hostname: smtpConfig.host, email: smtpConfig.email, password: smtpConfig.password, port: Int32(smtpConfig.port), tlsMode: .requireSTARTTLS, tlsConfiguration: nil)
         
@@ -69,7 +70,7 @@ final class SMTPHelper {
      5.  Send the created mail.  In the closure, check if there are any errors, if yes print them out.
      */
     
-    func sendResetPasswordEmail(name: String, email: String, resetTokenString: String) { // 1
+    func sendResetPasswordEmail(name: String, email: String, resetTokenString:String) { // 1
 
         let sender = Mail.User(name: "EEGJ", email: config.setup().email) // 2
         let receiver = Mail.User(name: name, email: email) // 3
@@ -79,7 +80,7 @@ final class SMTPHelper {
             from: sender,
             to: [receiver],
             subject: "Reset Your Password",
-            text: " Hi \(name)! You've requested to reset your password. https://eegj.fr/resetPassword?\token=\(resetTokenString) Click the link to reset your password."
+            text: "Hi \(name)!You've requested to reset your password. Click this link to reset your password: https://eegj.fr/resetPassword?token=\(resetTokenString)"
         
         )
         
