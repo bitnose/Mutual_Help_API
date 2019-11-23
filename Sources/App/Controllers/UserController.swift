@@ -694,9 +694,9 @@ struct UserController : RouteCollection {
      3. Generate a token string using CryptoRandom.
      4. Create a ResetPasswordToken object with the token string and the user’s ID
      5. Save the token in the database and unwrap the returned future.
-     6. Call sendResetPassword function in the do - try - catch -block and pass the parameters in (email, token).
+     6. Call sendResetPassword function.
      7. Return a response.
-     8. Return a response.
+
      */
     
     func resetPasswordHandler(_ req: Request) throws -> Future<Response> {
@@ -714,14 +714,11 @@ struct UserController : RouteCollection {
                     
         
                 // 6
-                    do {
-                        try SMTPHelper.init().sendResetPasswordEmail(name: user.firstname, email: user.email, resetTokenString: resetTokenString)
-                    } catch let error {
-                        print(error)
-                        return req.response() // 7
-                    }
+               
+                    SMTPHelper.init().sendResetPasswordEmail(name: user.firstname, email: user.email, resetTokenString: resetTokenString)
+            
                     
-                    return req.response() // 8
+                    return req.response() // 7
                 }
             }
         }
