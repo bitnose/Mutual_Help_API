@@ -699,9 +699,9 @@ struct UserController : RouteCollection {
     func resetPasswordHandler(_ req: Request) throws -> Future<Response> {
         
         
-        return try req.content.decode(String.self).flatMap(to: Response.self) { email in
+        return try req.content.decode(Email.self).flatMap(to: Response.self) { email in
         
-            return User.query(on: req).filter(\.email == email).first().unwrap(or: Abort(.notFound)).flatMap(to: Response.self) { user in // 2
+            return User.query(on: req).filter(\.email == email.email).first().unwrap(or: Abort(.notFound)).flatMap(to: Response.self) { user in // 2
                 
                 let resetTokenString = try CryptoRandom().generateData(count: 32).base32EncodedString() // 3
                 
@@ -837,4 +837,10 @@ struct UserController : RouteCollection {
     
 }
 
-
+/**
+ # Email Model for reseting the email
+ - email : String
+ */
+struct Email : Content {
+    let email : String
+}
