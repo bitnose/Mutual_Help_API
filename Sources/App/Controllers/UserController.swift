@@ -662,8 +662,7 @@ struct UserController : RouteCollection {
     
     
     // MARK: - Reset Password
-    
-<<<<<<< HEAD
+/*    
 //
     // Confirmation email
     func sendMail(name: String, email: String) {
@@ -679,9 +678,7 @@ struct UserController : RouteCollection {
         // What are in the message, and emails, etc
         let EEGJ = Mail.User(name: "Little Me - Thyself", email: "anniina.korkiakangas@gmail.com")
         let name = Mail.User(name: name, email: email)
-=======
->>>>>>> 664f0ffe3c3b9f0eaccfdf6f5f0fd8688a68ad5e
-
+*/
     /**
      # Route Handler to reset password / to send an email to the user
      - parameters:
