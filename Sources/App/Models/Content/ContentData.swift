@@ -314,3 +314,24 @@ struct ContactInfoData : Content {
     let ads : [Ad]
 }
 
+// MARK: - Reset Password 
+
+/**
+ # IsValid is data type which encapsulates the value of the token's validity
+ - isValid : Boolean
+ */
+struct IsValid : Content {
+    
+    let isValid : Bool
+    
+}
+
+/**
+ # ResetPasswordTokenData is data type to reset password
+ - password : String
+ - token : String
+ */
+struct ResetPasswordTokenData : Content {
+    let password : String
+    let token : String
+}

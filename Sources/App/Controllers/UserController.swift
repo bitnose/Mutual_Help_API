@@ -57,8 +57,12 @@ struct UserController : RouteCollection {
         //
         // 1. Post Request : Post Login Credentials to authorize and create a token for user.
         // 2. Post Request : Post Register data to to create and register a new user
+        // 3. Post Request : Post Email to send a password reset email to the user
         userRoute.post(LoginPostData.self, at: "login", use: loginPostHandler) // 1
         userRoute.post(RegisterPostData.self, at: "register", use: registerUserHandler) // 2
+        userRoute.post("resetPassword", use: resetPasswordHandler) // 3
+        userRoute.post("confirmResetToken", use: confirmResetTokenHandler)
+        userRoute.post(ResetPasswordTokenData.self, at: "updatePassword", use: updatePasswordHandler)
         
         // MARK: - STANDARD ACCESS
         //
@@ -217,7 +221,12 @@ struct UserController : RouteCollection {
         return User(firstname: data.firstname, lastname: data.lastname, email: data.email, password: hashedPassword, userType: .standard) // 3
             .save(on: req).flatMap(to: Token.self) { savedUser in // 4
             let token = try Token.generate(for: savedUser) // 5
-                self.sendMail(name: "Anniina", email: "anniina.korkiakangas@gmail.com")
+                
+            // Send email to the email address
+    //        SMTPHelper.init(email: "eegj@eegj.fr").sendMail(name: savedUser.firstname, email: savedUser.email)
+                
+                
+            //    self.sendMail(name: "Anniina", email: "anniina.korkiakangas@gmail.com")
             return token.save(on: req) // 6
                 
                 
@@ -652,47 +661,168 @@ struct UserController : RouteCollection {
     }
     
     
-    // MARK: - SMTP Stuff
+    // MARK: - Reset Password
     
-//
-    // Confirmation email
-    func sendMail(name: String, email: String) {
-        let smtp = SMTP (
-            hostname: "localhost",     // SMTP server address
-            email: "eegj@eegj.fr",        // username to login
-            password: "",            // password to login
-            port: 587,
-            tlsMode: .requireSTARTTLS,
-            tlsConfiguration: nil
-        )
 
-        // What are in the message, and emails, etc
-        let EEGJ = Mail.User(name: "Little Me - Thyself", email: "anniina.korkiakangas@gmail.com")
-        let name = Mail.User(name: name, email: email)
-
+    /**
+     # Route Handler to reset password / to send an email to the user
+     - parameters:
+        - req: Request
+     - throws: Abort Error
+     - returns: Future Response
+     
+     1. Decode the email address from the request's content.
+     2. Ensure there’s a user associated with the email address. Otherwise throw abort.
+     3. Generate a token string using CryptoRandom.
+     4. Create a ResetPasswordToken object with the token string and the user’s ID
+     5. Save the token in the database and unwrap the returned future.
+     6. Call sendResetPassword function in the do - try - catch -block and pass the parameters in (email, token).
+     7. Return a response.
+     8. Return a response.
+     */
     
+    func resetPasswordHandler(_ req: Request) throws -> Future<Response> {
         
-        //Creating  a mail object
-        let mail = Mail(
-            from: EEGJ,
-            to: [name],
-            subject: "Is it working??",
-            text: "We did it!"
-        )
-
-        // Sending the mail and if errors appear then printing them out
-        smtp.send(mail) { (error) in
-            if let error = error {
+        
+        return try req.content.decode(String.self).flatMap(to: Response.self) { email in
+        
+            return User.query(on: req).filter(\.email == email).first().unwrap(or: Abort(.notFound)).flatMap(to: Response.self) { user in // 2
                 
-                print(error, "ei toimi")
+                let resetTokenString = try CryptoRandom().generateData(count: 32).base32EncodedString() // 3
+                
+                let resetToken = try ResetPasswordToken(token: resetTokenString, userID: user.requireID()) // 4
+                    
+                return resetToken.save(on: req).map(to: Response.self) { _ in // 5
+                    
+        
+                // 6
+                    do {
+                        try SMTPHelper.init().sendResetPasswordEmail(name: user.firstname, email: user.email, resetTokenString: resetTokenString)
+                    } catch let error {
+                        print(error)
+                        return req.response() // 7
+                    }
+                    
+                    return req.response() // 8
+                }
+            }
+        }
+  
+    }
+    /**
+    # Route Handler to confirm reset password token
+    - parameters:
+       - req: Request
+    - throws: Abort Error
+    - returns: Future Bool
+    
+    1. Decode the string token from the request's content.
+    2. Make a query to ResetPasswordToken table to look up if there’s a PasswordToken associated with the resetPasswordString.
+    3. If the token was found ie it's not nil.
+    4. The date now.
+    5. Unwrap the date when the reset token was created.
+    6. If nil, delete token and return false.
+    7. Set an expiration date for 1h later for the reset token.
+    8. Compare the date now to the expiration date.
+    9. If not expired, return true.
+    10. If expired, delete reset token and return false.
+    11. If the foundToken is nil , return false.
+
+    */
+    func confirmResetTokenHandler(_ req: Request) throws -> Future<IsValid> {
+        
+        return try req.content.decode(String.self).flatMap(to: IsValid.self) { resetPasswordString in // 1
+            
+            return ResetPasswordToken.query(on: req).filter(\.token == resetPasswordString).first().map(to: IsValid.self) { foundToken in // 2
+                // 3
+                if foundToken != nil {
+                    
+                    let now = Date() // 4
+                    guard let tokenCreated = foundToken!.createdAt else { // 5
+                        
+                        _  = foundToken!.delete(on: req) // 6
+                        return IsValid(isValid: false) // 7
+                     }
+                    // 7
+                    let expirationDate = tokenCreated.addingTimeInterval(60*60) // 1h later
+                    print ("now = \(now), expirationDate = \(expirationDate), resetToken date = \(tokenCreated)")
+                        // 8
+                        if now.compare(expirationDate) == .orderedAscending {
+                            return IsValid(isValid: true)
+                                   
+                        } else { // 10
+                            _  = foundToken!.delete(on: req)
+                            return IsValid(isValid: false)
+                        }
+                    // 11
+                } else {
+                    return IsValid(isValid: false)
+                }
             }
         }
     }
+    
+    
+    /**
+     # Route Handler to reset password
+     - parameters:
+        - req: Request
+        - data : ResetPasswordData
+     - throws: Abort Error
+     - returns: Future Response
+     
+    
+     1. Make a query to ResetPasswordToken table to look up if there’s a PasswordToken associated with the resetPasswordString. Join the user to the query.
+     2.  Unwrap the pair.
+     3. The date now.
+     4. Unwrap the date when the reset token was created.  If the date is nil, delete token and return notFound.
+     5. Set an expiration date for 1h later for the reset token.
+     6. Compare the date now to the expiration date.
+     7. If not expired, base 64 encode the password, if error, throw abort.
+     8. Hash the password.
+     9. Update the password.
+     10. Delete reset token from the database.
+     11. Query all the auth tokens of the user and delete them.
+     12. Save the updated user to the database and return ok.
+     13. If the reset token was expired, delete reset token and return notFound.
 
+     */
     
     
+    func updatePasswordHandler(_ req: Request, data: ResetPasswordTokenData) throws -> Future<HTTPStatus> {
     
+        return ResetPasswordToken.query(on: req).join(\User.id, to: \ResetPasswordToken.userID).filter(\ResetPasswordToken.token == data.token).alsoDecode(User.self).first().flatMap(to: HTTPStatus.self) { resetTokenUserPair in // 1
+          
+            guard let existingPair = resetTokenUserPair else { print("Ad with that user doesn't exist");throw Abort(.notFound) } // 2
+        
+            let now = Date() // 3
+            guard let tokenCreated = existingPair.0.createdAt else { return existingPair.0.delete(on: req).transform(to: .notFound) } // 4
+            let expirationDate = tokenCreated.addingTimeInterval(60*60) // 5
+            
+            if now.compare(expirationDate) == .orderedAscending { // 6
+                
+                // ok
+                guard let newPassword = data.password.fromBase64() else { print("Corrupted data");throw Abort(.notFound)} // 7
+
+                let hashedPassword = try BCrypt.hash(newPassword) // 8
+                existingPair.1.password = hashedPassword // 9
+        
+                _ = existingPair.0.delete(on: req) // 10
+                _ = try existingPair.1.authTokens.query(on: req).delete() // 11
+            
+                return existingPair.1.save(on: req).transform(to: .ok) // 12
+                
+            } else {
+                
+                return existingPair.0.delete(on: req).transform(to: .notFound) // 13
+                
+            }
+        
+        }
+    
+    }
     
     
 }
+
 
