@@ -658,9 +658,9 @@ struct UserController : RouteCollection {
     // Confirmation email
     func sendMail(name: String, email: String) {
         let smtp = SMTP (
-            hostname: "localhost",     // SMTP server address
+            hostname: "mail.eegj.fr",     // SMTP server address
             email: "eegj@eegj.fr",        // username to login
-            password: "",            // password to login
+            password: "akjNCNAJKmad23",            // password to login
             port: 587,
             tlsMode: .requireSTARTTLS,
             tlsConfiguration: nil
