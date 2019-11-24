@@ -78,6 +78,7 @@ struct UserController : RouteCollection {
         // 10. Get Request : Get contact data of the ad
         // 11. Delete Request : Decline the contact request
         // 12. Delete Request : Delete user
+        // 13. Delete Request : Force delete profile of the user
         tokenAuthGroup.delete("logout", use: logoutHandler) // 1
         tokenAuthGroup.delete("logout", "all", use: destroyAllTokensHandler) // 2
         tokenAuthGroup.get("self", use: getMyProfileHandler) // 3
@@ -90,6 +91,7 @@ struct UserController : RouteCollection {
         tokenAuthGroup.get(Ad.parameter, "contacts", use: getSingleContactHandler) // 10
         tokenAuthGroup.delete(UUID.parameter, "contacts", "requests", "decline", use: declineContactRequestHandler) // 11
         tokenAuthGroup.delete("delete", "user", User.parameter, use: forceDeleteUserHandler) // 12
+        tokenAuthGroup.delete("delete", "profile", use: deleteProfileHandler) // 13
         
         // MARK: - ADMIN ACCESS
         //
@@ -214,7 +216,8 @@ struct UserController : RouteCollection {
     /// 3. Create a new user. User type is standard.
     /// 4. Save the user and map the result to Future<Token>
     /// 5. Generate a token for the user.
-    /// 6. Save and return the token.
+    /// 6. Send a welcoming mail to the email address of the user.
+    /// 7. Save and return the token.
     func registerUserHandler(_ req: Request, data: RegisterPostData) throws -> Future<Token> { // 1
      
         let hashedPassword = try BCrypt.hash(data.password) // 2
@@ -222,15 +225,9 @@ struct UserController : RouteCollection {
             .save(on: req).flatMap(to: Token.self) { savedUser in // 4
             let token = try Token.generate(for: savedUser) // 5
                 
-            // Send email to the email address
-    //        SMTPHelper.init(email: "eegj@eegj.fr").sendMail(name: savedUser.firstname, email: savedUser.email)
+            SMTPHelper.init().sendWelcomingMail(name: savedUser.firstname, email: savedUser.email) // 6
                 
-                
-            //    self.sendMail(name: "Anniina", email: "anniina.korkiakangas@gmail.com")
-            return token.save(on: req) // 6
-                
-                
-            
+            return token.save(on: req) // 7
         }
     }
     
@@ -744,8 +741,6 @@ struct UserController : RouteCollection {
         
         let token = try req.parameters.next(String.self)
         
-
-            
         return ResetPasswordToken.query(on: req).filter(\.token == token).first().map(to: IsValid.self) { foundToken in // 2
                 // 3
             if foundToken != nil {
@@ -833,6 +828,71 @@ struct UserController : RouteCollection {
         }
     
     }
+    
+    /**
+     # Delete Profile Handler
+      - parameters:
+        - req: Request
+     - Returns: Future HTTPStatus
+     - Throws: AbortError
+     
+     1. Get the authenticated user.
+     2. Query user's ads from the database.
+     3.  In the do catch block delete all the children models and remove the model from the relationships.
+     4.  Iterate the adsToRemove trouhgh.
+     5. Call willSoftDelete method to delete child models of ad. Catch the errors.
+     6. Print out the error and the message and throw abort.
+     7. If the ad has images,.
+     8. Create an aws instance what we will use to call the mehtod to delete images from the aws bucket.
+     9. Call the method to delete images from the aws bucket.
+     10. Catch the errors if there are any and print them out. Throw Abort.
+     11. Delete ad and transform to void.
+     12.  Call willSoftDelete method to delete the child models of the user and detach the user from its relationships.
+     13. Delete and return the user and transform to no content.
+     14.  Catch the errors and print them out. Throw Abort.
+     */
+    func deleteProfileHandler(_ req: Request) throws -> Future<HTTPStatus> {
+        
+        let authenticatedUser = try req.requireAuthenticated(User.self) // 1
+       
+        return try authenticatedUser.adsOfUser.query(on: req).all().flatMap(to: HTTPStatus.self) { adsToRemove in // 2
+                    
+            do { // 3
+                _ = try adsToRemove.map { // 3
+                        
+                _ = try $0.willDelete(on: req, ad: $0, force: true).catchMap({ error in // 5
+                print(error, "Error with deleting the child models of the ad.") // 6
+                throw Abort(.internalServerError)
+                })
+            
+                if $0.images != nil { // 7
+                    let aws = AwsController.init(awsConfig: self.awsConfig) // 8
+                    _ = try  $0.images!.map { try aws.deleteFile(req, name: $0) // 9
+                        // 10
+                        .catchMap({ error in
+                            print(error, "Error with deleting images of the ad.")
+                            throw Abort(.internalServerError)
+                        })
+                    }
+                }
+                _ = $0.delete(on: req).transform(to: ()) // 11
+
+                }
+                return try authenticatedUser.willDelete(on: req, user: authenticatedUser).flatMap(to: HTTPStatus.self) { _ in // 12
+                return authenticatedUser.delete(force: true, on: req).transform(to: .noContent) // 13
+                            
+                                
+                }
+            } catch let error { // 14
+                print(error, "Error with the deletion")
+                throw Abort(.internalServerError)
+            }
+        }
+           
+    }
+    
+
+    
     
     
 }

@@ -37,7 +37,6 @@ class SMTPConfiguration {
         let config = SMTPConfig(host: host, port: port, email: email, password: password)
         // Return configurations
         return config
-    
     }
 }
 
